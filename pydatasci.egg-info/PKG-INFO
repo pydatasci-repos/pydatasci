@@ -1,0 +1,41 @@
+Metadata-Version: 2.1
+Name: pydatasci
+Version: 0.0.8
+Summary: Simplify the end-to-end workflow of machine learning.
+Home-page: https://github.com/pydatasci-repo
+Author: Layne Sadler
+Author-email: layne.sadler@gmail.com
+License: UNKNOWN
+Description: # pydatasci
+        
+        > Simplify the end-to-end workflow of machine learning.
+        
+        
+        ### Updating the package:
+        ```
+        $ rm -r build dist pydatasci.egg-info
+        # update version number in setup.py
+        $ python3 setup.py sdist bdist_wheel
+        $ python3 -m twine upload --repository pypi dist/*
+        $ pip3 install --upgrade pydatasci
+        ```
+        
+        ### Installation:
+        This makes use of `appdirs` for an operating system agnostic location where a database file will be created.
+        ```
+        $ pip3 install pydatasci
+        $ python3
+        >>> import pydatasci as pds
+        >>> pds.create_ml_database()
+        ```
+        The path to the database will be set as global variable _ and used as a default argument with other functions, but you can override this argument if you need to.
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: Natural Language :: English
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Operating System :: OS Independent
+Classifier: Development Status :: 1 - Planning
+Classifier: Framework :: Jupyter
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Description-Content-Type: text/markdown

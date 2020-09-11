@@ -1,0 +1,8 @@
+README.md
+setup.py
+pydatasci/__init__.py
+pydatasci.egg-info/PKG-INFO
+pydatasci.egg-info/SOURCES.txt
+pydatasci.egg-info/dependency_links.txt
+pydatasci.egg-info/requires.txt
+pydatasci.egg-info/top_level.txt
