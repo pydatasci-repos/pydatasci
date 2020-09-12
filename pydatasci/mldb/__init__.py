@@ -13,11 +13,10 @@ def check_permissions(path:str):
 
 	if not readable:
 		print("\n=> Error - your operating system userID does not have permission to read from path:\n" + path + "\n")
-		print("\n=> Fix - you can attempt to fix this by running `mldb.grant_appdirs_permissions()`.\n")
-		return False
 	elif not writeable:
-		print("\n=> Error - your operating system userID does not have permission to read from path:\n" + path + "\n")
-		print("\n=> Fix - you can attempt to fix this by running `mldb.grant_appdirs_permissions()`\n")
+		print("\n=> Error - your operating system userID does not have permission to write to path:\n" + path + "\n")		
+	elif not readable or not writeable:
+		print("\n=> Fix - you can attempt to fix this by running `mldb.grant_appdirs_permissions()`.\n")
 		return False
 	elif readable and writeable:
 		return True
