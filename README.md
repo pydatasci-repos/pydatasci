@@ -7,9 +7,9 @@
 ```
 $ python3 setup.py sdist bdist_wheel
 $ python3 -m twine upload --repository pypi dist/*
-$ pip3 install --upgrade pydatasci
+$ pip3 install --upgrade pydatasci; pip3 install --upgrade pydatasci
 $ rm -r build dist pydatasci.egg-info
-# proactively update the version number for next time
+# proactively update the version number in setup.py next time
 ```
 
 ### First Time Installation:
@@ -17,6 +17,10 @@ This makes use of `appdirs` for an operating system agnostic location where a da
 ```
 $ pip3 install --upgrade pydatasci
 $ python3
+
+>>> import pydatasci as pds
+>>> pds_config = pds.create_config()
+
 >>> from pydatasci import mldb as mldb
 >>> mldb.create_db()
 ```
