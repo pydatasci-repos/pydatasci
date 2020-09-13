@@ -13,15 +13,20 @@ $ rm -r build dist pydatasci.egg-info
 ```
 
 ### First Time Installation:
-This makes use of `appdirs` for an operating system agnostic location where a database file will be created.
+This library makes use of `appdirs` for an operating system agnostic location where configuration and database files will be created to store settings and data science metrics. This process also ensures that you have the permissions needed to read/ write files in that location. 
+
+Enter the following commands one by one:
 ```
 $ pip3 install --upgrade pydatasci
 $ python3
 
 >>> import pydatasci as pds
->>> pds_config = pds.create_config()
+>>> pds.check_path_permissions(pds.app_dir)
+>>> pds.create_config()
 
->>> from pydatasci import mldb as mldb
+>>> from pydatasci import mldb
 >>> mldb.create_db()
 ```
+
+
 ToDo - The path to the database will be set as global variable _ and used as a default argument with other functions, but you can override this argument if you need to.

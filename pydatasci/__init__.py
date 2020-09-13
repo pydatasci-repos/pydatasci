@@ -77,9 +77,6 @@ def create_config():
 				print("\n=> Error - failed to create config file at path:\n" + config_path)
 				print("===================================\n")
 				raise
-
-			pds_config = get_config()
-			return pds_config
 	else:
 		print("\n Warning - skipping as config file already exists at path: " + config_file_path + "\n")
 
