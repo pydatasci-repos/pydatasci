@@ -21,12 +21,9 @@ $ pip3 install --upgrade pydatasci
 $ python3
 
 >>> import pydatasci as pds
->>> pds.check_path_permissions(pds.app_dir)
+>>> if pds.check_permissions() is False: pds.grant_permissions()
 >>> pds.create_config()
 
 >>> from pydatasci import mldb
 >>> mldb.create_db()
 ```
-
-
-ToDo - The path to the database will be set as global variable _ and used as a default argument with other functions, but you can override this argument if you need to.

@@ -10,37 +10,45 @@ default_config_path = app_dir + "pydatasci_config.json"
 default_db_path = app_dir + "pydatasci_db.sqlite3"
 
 
-def check_path_permissions(path:str):
+def check_permissions():
 	# learned that pip reads from appdirs on macos. so if they ran pip to install it they can r/w?
-	readable = os.access(path, os.R_OK)
-	writeable = os.access(path, os.R_OK)
+	readable = os.access(app_dir, os.R_OK)
+	writeable = os.access(app_dir, os.R_OK)
 
 	if not readable:
-		print("\n=> Error - your operating system userID does not have permission to read from path:\n" + path + "\n")
+		print("\n=> Error - your operating system userID does not have permission to read from path:\n" + app_dir + "\n")
 	elif not writeable:
-		print("\n=> Error - your operating system userID does not have permission to write to path:\n" + path + "\n")		
+		print("\n=> Error - your operating system userID does not have permission to write to path:\n" + app_dir + "\n")
 	elif not readable or not writeable:
 		print("\n=> Fix - you can attempt to fix this by running `pds.grant_appdirs_permissions()`.\n")
 		return False
 	elif readable and writeable:
+		print("\n=> Success - your operating system userID can read and write to path:\n" + app_dir + "\n")
 		return True
 
 
-def grant_appdirs_permissions():
-	app_dir = appdirs.user_data_dir()
-	command = "chmod +wr "
-	full_command = command + '"' + app_dir + '"'
-
+# need to do icalcs for windows https://www.educative.io/edpresso/what-is-chmod-in-windows
+# how to determine OS?
+def grant_permissions():
 	try:
-		sys_response = os.system(full_command)
+		if os.name == 'nt':
+			# Windows
+			command = 'icacls "' + app_dir + '" /grant users:(F) /t /c'
+			sys_response = os.system(command)
+		else:
+			# Unix
+			command = 'chmod +wr ' + '"' + app_dir + '"'
+			sys_response = os.system(command)
 	except:
-		print("\n=> Error - error failed to execute this system command: " + full_command +"\n")
+		print("\n=> Error - error failed to execute this system command: " + command)
+		print("===================================\n")
+		raise
 	
-	permissions = check_path_permissions(path=app_dir)
-	if permissions == True:
-		print("\n=> Success - operating system userID can read and write from path: " + app_dir + "\n")
+	permissions = check_permissions()
+	if permissions:
+		print("\n=> Success - granted system permissions to read and write from path:\n" + app_dir + "\n")
 	else:
-		print("\n=> Error - Failed to grant operating system userID permission to read and write from path: " + app_dir + "\n")
+		print("\n=> Error - failed to grant system permissions to read and write from path:\n" + app_dir + "\n")
 
 
 def get_config():
@@ -56,9 +64,6 @@ def get_config():
 def create_config():
 	config_exists = os.path.exists(default_config_path)
 	if not config_exists:
-		permissions = check_path_permissions(path=app_dir)
-		if permissions:
-
 			pds_config = {
 				"config_path": default_config_path,
 				"db_path": default_db_path,
