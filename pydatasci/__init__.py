@@ -15,16 +15,17 @@ def check_permissions():
 	readable = os.access(app_dir, os.R_OK)
 	writeable = os.access(app_dir, os.R_OK)
 
-	if not readable:
-		print("\n=> Error - your operating system userID does not have permission to read from path:\n" + app_dir + "\n")
-	elif not writeable:
-		print("\n=> Error - your operating system userID does not have permission to write to path:\n" + app_dir + "\n")
-	elif not readable or not writeable:
-		print("\n=> Fix - you can attempt to fix this by running `pds.grant_appdirs_permissions()`.\n")
-		return False
-	elif readable and writeable:
+	if readable and writeable:
 		print("\n=> Success - your operating system userID can read and write to path:\n" + app_dir + "\n")
 		return True
+	else:
+		if not readable:
+			print("\n=> Error - your operating system userID does not have permission to read from path:\n" + app_dir + "\n")
+		if not writeable:
+			print("\n=> Error - your operating system userID does not have permission to write to path:\n" + app_dir + "\n")
+		if not readable or not writeable:
+			print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions()`.\n")
+			return False
 
 
 # need to do icalcs for windows https://www.educative.io/edpresso/what-is-chmod-in-windows
@@ -40,7 +41,7 @@ def grant_permissions():
 			command = 'chmod +wr ' + '"' + app_dir + '"'
 			sys_response = os.system(command)
 	except:
-		print("\n=> Error - error failed to execute this system command: " + command)
+		print("\n=> Error - error failed to execute this system command:\n" + command)
 		print("===================================\n")
 		raise
 	
