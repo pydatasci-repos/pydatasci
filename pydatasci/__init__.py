@@ -43,6 +43,7 @@ def create_folder():
 			print("===================================\n")
 			raise
 		print("\n=> Success - created folder at file path:\n" + app_dir + "\n")
+		print("\n=> Fix - now try running `pds.create_config()` again.\n")
 
 
 def check_permissions_folder():
@@ -103,20 +104,20 @@ def get_config():
 def create_config():
 	config_exists = os.path.exists(default_config_path)
 	if not config_exists:
-			pds_config = {
-				"config_path": default_config_path,
-				"db_path": default_db_path,
-			}
-			
-			try:
-				with open(default_config_path, 'w') as pds_config_file:
-					json.dump(pds_config, pds_config_file)
-			except:
-				print("\n=> Error - failed to create config file at path:\n" + default_config_path)
-				print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.\n")
-				print("===================================\n")
-				raise
-			print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
+		pds_config = {
+			"config_path": default_config_path,
+			"db_path": default_db_path,
+		}
+		
+		try:
+			with open(default_config_path, 'w') as pds_config_file:
+				json.dump(pds_config, pds_config_file)
+		except:
+			print("\n=> Error - failed to create config file at path:\n" + default_config_path)
+			print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.\n")
+			print("===================================\n")
+			raise
+		print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
 	else:
 		print("\n=> Warning - skipping as config file already exists at path: " + default_config_path + "\n")
 
@@ -157,5 +158,5 @@ def update_config(kv:dict):
 			raise
 		print("\n=> Success - updated configuration settings:\n" + str(pds_config) + "\n")
 
-
+# This runs at startup and triggers the welcome message/ instruction if it is not configured.
 pds_config = get_config()
