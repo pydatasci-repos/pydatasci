@@ -5,16 +5,17 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pydatasci",
-    version="0.0.18",
+    version="0.0.24",
     author="Layne Sadler",
     author_email="layne@pydatasci.org",
-    description="End-to-end machine learning on your desktop.",
+    description="End-to-end machine learning on your desktop or server.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/pydatasci-repo",
     packages=setuptools.find_packages(),
     install_requires=[
         'appdirs',
+        'peewee'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

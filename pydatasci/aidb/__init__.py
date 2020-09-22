@@ -5,6 +5,7 @@ from datetime import datetime
 
 import appdirs # ToDo - can I delete this as it is only used in config?
 from peewee import *
+from playhouse.dataset import DataSet
 
 # Assumes that `pydatasci.create_config()` has been run during installation instructions:
 from pydatasci import get_config
@@ -16,36 +17,28 @@ def get_path_db():
 		print("\n Welcome - Your configuration has not been set up. Please run `pds.create_config()` in Python shell.\n")
 	else:
 		db_path = pds_config['db_path']
-	
 	return db_path
 
 
 def get_db():
-	db_path = get_path_db()
+	path = get_path_db()
 	# peewee ORM connection to database:
-	db = SqliteDatabase(db_path)
-	# db.connect()
-	# remember to run `db.connect()` and `db.close()` elsewhere.
+	db = SqliteDatabase(path)
 	return db
 
 
-def delete_db(confirm:bool=False):
-	if confirm:
-		db_path = get_path_db()
-		db_exists = os.path.exists(db_path)
-		if db_exists:
-			try:
-				os.remove(db_path)
-			except:
-				print("\n=> Error - failed to delete database file at path:\n" + db_path)
-				print("===================================")
-				raise
-			print("\n=> Success - deleted database file at path:\n" + db_path + "\n")
+def get_path_dataset_ext():
+	path = get_path_db()
+	prefix = "sqlite:///"
+	prefix_db_path = prefix + path
+	return prefix_db_path
 
-		else:
-			print("\n=> Warning - there is no file to delete at path:\n" + db_path + "\n")
-	else:
-		print("\n=> Warning - skipping deletion because `confirm` arg not set to boolean `True`.\n")
+
+def get_dataset_ext():
+	# http://docs.peewee-orm.com/en/latest/peewee/playhouse.html#dataset
+	path = get_path_dataset_ext()
+	db = DataSet(path)
+	return db
 
 
 def create_db():
@@ -78,6 +71,25 @@ def create_db():
 			print("\n=> Success - created the following tables within database:\n" + str(tables) + "\n")
 		else:
 			print("\n=> Error - failed to create tables. Please see README file section titled: 'Deleting & Recreating the Database'\n")
+
+
+def delete_db(confirm:bool=False):
+	if confirm:
+		db_path = get_path_db()
+		db_exists = os.path.exists(db_path)
+		if db_exists:
+			try:
+				os.remove(db_path)
+			except:
+				print("\n=> Error - failed to delete database file at path:\n" + db_path)
+				print("===================================")
+				raise
+			print("\n=> Success - deleted database file at path:\n" + db_path + "\n")
+
+		else:
+			print("\n=> Warning - there is no file to delete at path:\n" + db_path + "\n")
+	else:
+		print("\n=> Warning - skipping deletion because `confirm` arg not set to boolean `True`.\n")
 
 
 # peewee ORM:

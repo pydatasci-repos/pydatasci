@@ -5,41 +5,77 @@ import appdirs
 
 name = "pydatasci"
 
-app_dir = appdirs.user_data_dir()
+app_dir_free = appdirs.user_data_dir()
+# need to make sure there's a trailing slash
+app_dir = os.path.join(app_dir_free, '')
 default_config_path = app_dir + "pydatasci_config.json"
 default_db_path = app_dir + "pydatasci_db.sqlite3"
 
 
-def check_permissions():
-	# learned that pip reads from appdirs on macos. so if they ran pip to install it they can r/w?
-	# https://www.geeksforgeeks.org/python-os-access-method/
-	readable = os.access(app_dir, os.R_OK)
-	writeable = os.access(app_dir, os.W_OK)
-
-	if readable and writeable:
-		print("\n=> Success - your operating system userID can read and write to path:\n" + app_dir + "\n")
-		return True
+def check_exists_folder():
+	app_dir_exists = os.path.exists(app_dir)
+	if app_dir_exists:
+		print("\n=> Success - the following file path already exists on your system:\n" + app_dir + "\n")
 	else:
-		if not readable:
-			print("\n=> Error - your operating system userID does not have permission to read from path:\n" + app_dir + "\n")
-		if not writeable:
-			print("\n=> Error - your operating system userID does not have permission to write to path:\n" + app_dir + "\n")
-		if not readable or not writeable:
-			print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions()`.\n")
-			return False
+		print("\n=> Error - the following file path does not exist on your system:\n" + app_dir + "\n")
+		print("\n=> Fix - you can attempt to fix this by running `pds.create_folder()`.\n")
+
+	return app_dir_exists
 
 
-# need to do icalcs for windows https://www.educative.io/edpresso/what-is-chmod-in-windows
-# how to determine OS?
-def grant_permissions():
+def create_folder():
+	app_dir_exists = check_exists_folder()
+	if app_dir_exists:
+		print("\n=> Warning - skipping folder creation as folder already exists at file path:\n" + app_dir + "\n")
+	else:
+		# ToDo - windows support.
+		try:
+			if os.name == 'nt':
+				# Windows: remember backslashes \
+				command = 'mkdir ' + app_dir
+				os.system(command)
+			else:
+				# posix
+				command = 'mkdir -p "' + app_dir + '"'
+				os.system(command)
+		except:
+			print("\n=> Error - error failed to execute this system command:\n" + command)
+			print("===================================\n")
+			raise
+		print("\n=> Success - created folder at file path:\n" + app_dir + "\n")
+
+
+def check_permissions_folder():
+	app_dir_exists = check_exists_folder()
+	if app_dir_exists:
+		# https://www.geeksforgeeks.org/python-os-access-method/
+		readable = os.access(app_dir, os.R_OK)
+		writeable = os.access(app_dir, os.W_OK)
+
+		if readable and writeable:
+			print("\n=> Success - your operating system userID can read and write to file path:\n" + app_dir + "\n")
+			return True
+		else:
+			if not readable:
+				print("\n=> Error - your operating system userID does not have permission to read from file path:\n" + app_dir + "\n")
+			if not writeable:
+				print("\n=> Error - your operating system userID does not have permission to write to file path:\n" + app_dir + "\n")
+			if not readable or not writeable:
+				print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
+				return False
+	else:
+		return False
+
+
+def grant_permissions_folder():
 	try:
 		if os.name == 'nt':
-			# Windows
+			# Windows icalcs permissions: https://www.educative.io/edpresso/what-is-chmod-in-windows
 			# ToDo - test on a Windows machine and mess with permissions before and after db file creation.
 			command = 'icacls "' + app_dir + '" /grant users:(F) /t /c'
 			sys_response = os.system(command)
 		else:
-			# Unix
+			# posix
 			command = 'chmod +wr ' + '"' + app_dir + '"'
 			sys_response = os.system(command)
 	except:
@@ -47,11 +83,11 @@ def grant_permissions():
 		print("===================================\n")
 		raise
 	
-	permissions = check_permissions()
+	permissions = check_permissions_folder()
 	if permissions:
-		print("\n=> Success - granted system permissions to read and write from path:\n" + app_dir + "\n")
+		print("\n=> Success - granted system permissions to read and write from file path:\n" + app_dir + "\n")
 	else:
-		print("\n=> Error - failed to grant system permissions to read and write from path:\n" + app_dir + "\n")
+		print("\n=> Error - failed to grant system permissions to read and write from file path:\n" + app_dir + "\n")
 
 
 def get_config():
@@ -77,6 +113,7 @@ def create_config():
 					json.dump(pds_config, pds_config_file)
 			except:
 				print("\n=> Error - failed to create config file at path:\n" + default_config_path)
+				print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.\n")
 				print("===================================\n")
 				raise
 			print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
