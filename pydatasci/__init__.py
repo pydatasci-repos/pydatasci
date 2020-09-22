@@ -12,8 +12,9 @@ default_db_path = app_dir + "pydatasci_db.sqlite3"
 
 def check_permissions():
 	# learned that pip reads from appdirs on macos. so if they ran pip to install it they can r/w?
+	# https://www.geeksforgeeks.org/python-os-access-method/
 	readable = os.access(app_dir, os.R_OK)
-	writeable = os.access(app_dir, os.R_OK)
+	writeable = os.access(app_dir, os.W_OK)
 
 	if readable and writeable:
 		print("\n=> Success - your operating system userID can read and write to path:\n" + app_dir + "\n")
@@ -34,6 +35,7 @@ def grant_permissions():
 	try:
 		if os.name == 'nt':
 			# Windows
+			# ToDo - test on a Windows machine and mess with permissions before and after db file creation.
 			command = 'icacls "' + app_dir + '" /grant users:(F) /t /c'
 			sys_response = os.system(command)
 		else:
@@ -82,7 +84,7 @@ def create_config():
 		print("\n=> Warning - skipping as config file already exists at path: " + default_config_path + "\n")
 
 
-def delete_config(confirm:bool):
+def delete_config(confirm:bool=False):
 	pds_config = get_config()
 	if pds_config is None:
 		print("\n=> Warning - skipping as there is no config file to delete.\n")

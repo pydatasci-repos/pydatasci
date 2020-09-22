@@ -5,10 +5,10 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pydatasci",
-    version="0.0.17",
+    version="0.0.18",
     author="Layne Sadler",
     author_email="layne@pydatasci.org",
-    description="Simplify the end-to-end workflow of machine learning.",
+    description="End-to-end machine learning on your desktop.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/pydatasci-repo",
