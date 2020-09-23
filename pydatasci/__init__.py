@@ -5,21 +5,21 @@ import appdirs
 
 name = "pydatasci"
 
-app_dir_free = appdirs.user_data_dir()
-# need to make sure there's a trailing slash
-app_dir = os.path.join(app_dir_free, '')
-default_config_path = app_dir + "pydatasci_config.json"
-default_db_path = app_dir + "pydatasci_db.sqlite3"
+app_dir_no_trailing_slash = appdirs.user_data_dir("pydatasci")
+# Adds trailing slash or backslashes depending on OS.
+app_dir = os.path.join(app_dir_no_trailing_slash, '')
+default_config_path = app_dir + "config.json"
+default_db_path = app_dir + "aidb.sqlite3"
 
 
 def check_exists_folder():
 	# If Windows does not have permission to read the folder, it will fail when trailing backslashes \\ provided.
-	app_dir_exists = os.path.exists(app_dir_free)
+	app_dir_exists = os.path.exists(app_dir_no_trailing_slash)
 	if app_dir_exists:
 		print("\n=> Success - the following file path already exists on your system:\n" + app_dir + "\n")
 		return True
 	else:
-		print("\n=> Error - the following file path does not exist on your system:\n" + app_dir + "\n")
+		print("\n=> Error - it appears the following folder does not exist on your system:\n" + app_dir + "\n")
 		print("\n=> Fix - you can attempt to fix this by running `pds.create_folder()`.\n")
 		return False
 
@@ -117,7 +117,7 @@ def grant_permissions_folder():
 				# Windows ICACLS permissions: https://www.educative.io/edpresso/what-is-chmod-in-windows
 				# Works in Windows Command Prompt and `os.system()`, but not PowerShell.
 				# Does not work with trailing backslashes \\
-				command = 'icacls "' + app_dir_free + '" /grant users:(F) /t /c'
+				command = 'icacls "' + app_dir_no_trailing_slash + '" /grant users:(F) /c'
 				os.system(command)
 			else:
 				# posix
@@ -142,28 +142,31 @@ def get_config():
 			pds_config = json.load(pds_config_file)
 			return pds_config
 	else: 
-		print("\n=> Welcome to pydatasci. Configuration not set, run `pds.create_config()` in Python shell.\n")
+		print("\n=> Welcome to PyDataSci.\nTo get started, run `pds.create_folder()` followed by `pds.create_config() in Python shell.\n")
 
 
 def create_config():
-	config_exists = os.path.exists(default_config_path)
-	if not config_exists:
-		pds_config = {
-			"config_path": default_config_path,
-			"db_path": default_db_path,
-		}
-		
-		try:
-			with open(default_config_path, 'w') as pds_config_file:
-				json.dump(pds_config, pds_config_file)
-		except:
-			print("\n=> Error - failed to create config file at path:\n" + default_config_path)
-			print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.\n")
-			print("===================================\n")
-			raise
-		print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
-	else:
-		print("\n=> Warning - skipping as config file already exists at path: " + default_config_path + "\n")
+	#check if folder exists
+	folder_exists = check_exists_folder()
+	if folder_exists:
+		config_exists = os.path.exists(default_config_path)
+		if not config_exists:
+			pds_config = {
+				"config_path": default_config_path,
+				"db_path": default_db_path,
+			}
+			
+			try:
+				with open(default_config_path, 'w') as pds_config_file:
+					json.dump(pds_config, pds_config_file)
+			except:
+				print("\n=> Error - failed to create config file at path:\n" + default_config_path)
+				print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.\n")
+				print("===================================\n")
+				raise
+			print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
+		else:
+			print("\n=> Warning - skipping as config file already exists at path: " + default_config_path + "\n")
 
 
 def delete_config(confirm:bool=False):
@@ -202,5 +205,5 @@ def update_config(kv:dict):
 			raise
 		print("\n=> Success - updated configuration settings:\n" + str(pds_config) + "\n")
 
-# This runs at startup and triggers the welcome message/ instruction if it is not configured.
+# This runs at startup and triggers the welcome message instructions if configuration has not taken place yet.
 pds_config = get_config()

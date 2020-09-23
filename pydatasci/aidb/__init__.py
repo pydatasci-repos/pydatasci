@@ -13,7 +13,8 @@ from pydatasci import get_config
 def get_path_db():
 	pds_config = get_config()
 	if pds_config is None:
-		print("\n Welcome - Your configuration has not been set up. Please run `pds.create_config()` in Python shell.\n")
+		# pds will provide an explanatory print() statement.
+		pass
 	else:
 		db_path = pds_config['db_path']
 		return db_path
