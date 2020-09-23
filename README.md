@@ -10,7 +10,7 @@ $ python3 setup.py sdist bdist_wheel
 $ python3 -m twine upload --repository pypi dist/*
 $ rm -r build dist pydatasci.egg-info
 # proactively update the version number in setup.py next time
-$ pip3 install --upgrade pydatasci; pip3 install --upgrade pydatasci
+$ pip install --upgrade pydatasci; pip install --upgrade pydatasci
 ```
 
 

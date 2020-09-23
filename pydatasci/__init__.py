@@ -13,14 +13,15 @@ default_db_path = app_dir + "pydatasci_db.sqlite3"
 
 
 def check_exists_folder():
-	app_dir_exists = os.path.exists(app_dir)
+	# If Windows does not have permission to read the folder, it will fail when trailing backslashes \\ provided.
+	app_dir_exists = os.path.exists(app_dir_free)
 	if app_dir_exists:
 		print("\n=> Success - the following file path already exists on your system:\n" + app_dir + "\n")
+		return True
 	else:
 		print("\n=> Error - the following file path does not exist on your system:\n" + app_dir + "\n")
 		print("\n=> Fix - you can attempt to fix this by running `pds.create_folder()`.\n")
-
-	return app_dir_exists
+		return False
 
 
 def create_folder():
@@ -31,11 +32,11 @@ def create_folder():
 		# ToDo - windows support.
 		try:
 			if os.name == 'nt':
-				# Windows: remember backslashes \
+				# Windows: backslashes \ and double backslashes \\
 				command = 'mkdir ' + app_dir
 				os.system(command)
 			else:
-				# posix
+				# posix (mac and linux)
 				command = 'mkdir -p "' + app_dir + '"'
 				os.system(command)
 		except:
@@ -49,46 +50,89 @@ def create_folder():
 def check_permissions_folder():
 	app_dir_exists = check_exists_folder()
 	if app_dir_exists:
-		# https://www.geeksforgeeks.org/python-os-access-method/
-		readable = os.access(app_dir, os.R_OK)
-		writeable = os.access(app_dir, os.W_OK)
-
-		if readable and writeable:
-			print("\n=> Success - your operating system userID can read and write to file path:\n" + app_dir + "\n")
-			return True
-		else:
-			if not readable:
-				print("\n=> Error - your operating system userID does not have permission to read from file path:\n" + app_dir + "\n")
-			if not writeable:
-				print("\n=> Error - your operating system userID does not have permission to write to file path:\n" + app_dir + "\n")
-			if not readable or not writeable:
+		# Windows `os.access()` always returning True even when I have verify permissions are in fact denied.
+		if os.name == 'nt':
+			# Test write.
+			file_name = "pds_test_permissions.txt"
+			
+			try:
+				cmd_file_create = 'echo "test" >> ' + app_dir + file_name
+				write_response = os.system(cmd_file_create)
+			except:
+				print("\n=> Error - your operating system user does not have permission to write to file path:\n" + app_dir + "\n")
 				print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
 				return False
+
+			if write_response != 0:
+				print("\n=> Error - your operating system user does not have permission to write to file path:\n" + app_dir + "\n")
+				print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
+				return False
+			else:
+				# Test read.
+				try:
+					read_response = os.system("type " + app_dir + file_name)
+				except:
+					print("\n=> Error - your operating system user does not have permission to read from file path:\n" + app_dir + "\n")
+					print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
+					return False
+
+				if read_response != 0:
+					print("\n=> Error - your operating system user does not have permission to read from file path:\n" + app_dir + "\n")
+					print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
+					return False
+				else:
+					cmd_file_delete = "erase " + app_dir + file_name
+					os.system(cmd_file_delete)
+					print("\n=> Success - your operating system user can read from and write to file path:\n" + app_dir + "\n")
+					return True
+
+		else:
+			# posix
+			# https://www.geeksforgeeks.org/python-os-access-method/
+			readable = os.access(app_dir, os.R_OK)
+			writeable = os.access(app_dir, os.W_OK)
+
+			if readable and writeable:
+				print("\n=> Success - your operating system user can read from and write to file path:\n" + app_dir + "\n")
+				return True
+			else:
+				if not readable:
+					print("\n=> Error - your operating system user does not have permission to read from file path:\n" + app_dir + "\n")
+				if not writeable:
+					print("\n=> Error - your operating system user does not have permission to write to file path:\n" + app_dir + "\n")
+				if not readable or not writeable:
+					print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
+					return False
 	else:
 		return False
 
 
 def grant_permissions_folder():
-	try:
-		if os.name == 'nt':
-			# Windows icalcs permissions: https://www.educative.io/edpresso/what-is-chmod-in-windows
-			# ToDo - test on a Windows machine and mess with permissions before and after db file creation.
-			command = 'icacls "' + app_dir + '" /grant users:(F) /t /c'
-			sys_response = os.system(command)
-		else:
-			# posix
-			command = 'chmod +wr ' + '"' + app_dir + '"'
-			sys_response = os.system(command)
-	except:
-		print("\n=> Error - error failed to execute this system command:\n" + command)
-		print("===================================\n")
-		raise
-	
 	permissions = check_permissions_folder()
 	if permissions:
-		print("\n=> Success - granted system permissions to read and write from file path:\n" + app_dir + "\n")
+		print("\n=> Warning - skipping as you already have permissions to read from and write to file path:\n" + app_dir + "\n")
 	else:
-		print("\n=> Error - failed to grant system permissions to read and write from file path:\n" + app_dir + "\n")
+		try:
+			if os.name == 'nt':
+				# Windows ICACLS permissions: https://www.educative.io/edpresso/what-is-chmod-in-windows
+				# Works in Windows Command Prompt and `os.system()`, but not PowerShell.
+				# Does not work with trailing backslashes \\
+				command = 'icacls "' + app_dir_free + '" /grant users:(F) /t /c'
+				os.system(command)
+			else:
+				# posix
+				command = 'chmod +wr ' + '"' + app_dir + '"'
+				os.system(command)
+		except:
+			print("\n=> Error - error failed to execute this system command:\n" + command)
+			print("===================================\n")
+			raise
+		
+		permissions = check_permissions_folder()
+		if permissions:
+			print("\n=> Success - granted system permissions to read and write from file path:\n" + app_dir + "\n")
+		else:
+			print("\n=> Error - failed to grant system permissions to read and write from file path:\n" + app_dir + "\n")
 
 
 def get_config():

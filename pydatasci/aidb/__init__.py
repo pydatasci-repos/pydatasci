@@ -3,11 +3,10 @@ name = "aidb"
 import os, sqlite3
 from datetime import datetime
 
-import appdirs # ToDo - can I delete this as it is only used in config?
 from peewee import *
 from playhouse.dataset import DataSet
 
-# Assumes that `pydatasci.create_config()` has been run during installation instructions:
+# Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
 
 
@@ -17,21 +16,28 @@ def get_path_db():
 		print("\n Welcome - Your configuration has not been set up. Please run `pds.create_config()` in Python shell.\n")
 	else:
 		db_path = pds_config['db_path']
-	return db_path
+		return db_path
 
 
 def get_db():
 	path = get_path_db()
-	# peewee ORM connection to database:
-	db = SqliteDatabase(path)
-	return db
+	if path is None:
+		print("\n Error - Cannot fetch database because it has not yet been configured.\n")
+	else:
+		# peewee ORM connection to database:
+		db = SqliteDatabase(path)
+		return db
 
 
 def get_path_dataset_ext():
 	path = get_path_db()
-	prefix = "sqlite:///"
-	prefix_db_path = prefix + path
-	return prefix_db_path
+	if path is None:
+		print("\n Error - Cannot fetch database because it has not yet been configured.\n")
+	else:
+		# Despite looking weird, this path works on Windows: `sqlite:///C:\\...`
+		prefix = "sqlite:///"
+		prefix_db_path = prefix + path
+		return prefix_db_path
 
 
 def get_dataset_ext():
@@ -42,7 +48,7 @@ def get_dataset_ext():
 
 
 def create_db():
-	# ToDo - Could let the user specify their own db name, for import tutorials.
+	# ToDo - Could let the user specify their own db name, for import tutorials. Could check if passed as an argument to create_config?
 	db_path = get_path_db()
 	db_exists = os.path.exists(db_path)
 	if db_exists:
@@ -92,7 +98,7 @@ def delete_db(confirm:bool=False):
 		print("\n=> Warning - skipping deletion because `confirm` arg not set to boolean `True`.\n")
 
 
-# peewee ORM:
+# ============ ORM ============
 class BaseModel(Model):
     class Meta:
         database = get_db()
