@@ -6,9 +6,11 @@ from datetime import datetime
 #orm
 from peewee import *
 from playhouse.dataset import DataSet
+from playhouse.sqlite_ext import SqliteExtDatabase, JSONField
 #data ingestion
 import pyarrow
 from pyarrow import parquet as pq
+from pyarrow.csv import read_csv
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -30,7 +32,8 @@ def get_db():
 		print("\n Error - Cannot fetch database because it has not yet been configured.\n")
 	else:
 		# peewee ORM connection to database:
-		db = SqliteDatabase(path)
+		#db = SqliteDatabase(path)
+		db = SqliteExtDatabase(path)
 		return db
 
 
@@ -110,10 +113,18 @@ def create_dataset_from_file(
 	name:str=None,
 	perform_gzip:bool=True
 ):
+	"""
+	Does not accept compressed files.
+	"""
+	
 	#ToDo column names. pyarrow layer to handle files?
+	#ToDo csv,tsv,parquet,gzip
 	
 	if name is None:
 		name=path
+
+	tbl = pyarrow.csv.read_csv(path)
+	column_names = tbl.column_names
 
 	with open(path, "rb") as f:
 		bytesio = io.BytesIO(f.read())
@@ -127,10 +138,16 @@ def create_dataset_from_file(
 	d = Dataset.create(
 		name = name,
 		data = data,
-		is_compressed = is_compressed
+		is_compressed = is_compressed,
+		column_names = column_names
 	)
 
 	return d
+
+
+#def create_dataset_from_pandas():
+#def create_dataset_from_numpy():
+
 
 def read_dataset():
 	pass
@@ -153,6 +170,7 @@ class Dataset(BaseModel):
 	name = CharField()
 	data = BlobField()
 	is_compressed = BooleanField()
+	column_names= JSONField()
 	#storage_format = CharField() #sqlite_blob, path_single, path_partitioned
 	#original_format = pandas, numpy, file_parquet, file_parquet_gzip, file_parquet_partitions, file_csv, file_tsv
 	#compression = CharField()
