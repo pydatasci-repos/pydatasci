@@ -107,22 +107,27 @@ def delete_db(confirm:bool=False):
 # ============ CRUD ============
 def create_dataset_from_file(
 	path:str, 
-	name:str=None
+	name:str=None,
+	perform_gzip:bool=True
 ):
 	#ToDo column names. pyarrow layer to handle files?
-	#ToDo indicate compressed.
 	
 	if name is None:
 		name=path
 
 	with open(path, "rb") as f:
 		bytesio = io.BytesIO(f.read())
-		blob = bytesio.getvalue()
-		gz_blob = gzip.compress(blob)
+		data = bytesio.getvalue()
+		if perform_gzip:
+			data = gzip.compress(data)
+			is_compressed=True
+		else:
+			is_compressed=False
 
 	d = Dataset.create(
-		data = gz_blob,
-		name = name
+		name = name,
+		data = data,
+		is_compressed = is_compressed
 	)
 
 	return d
@@ -147,6 +152,7 @@ class Job(BaseModel):
 class Dataset(BaseModel):
 	name = CharField()
 	data = BlobField()
+	is_compressed = BooleanField()
 	#storage_format = CharField() #sqlite_blob, path_single, path_partitioned
 	#original_format = pandas, numpy, file_parquet, file_parquet_gzip, file_parquet_partitions, file_csv, file_tsv
 	#compression = CharField()
