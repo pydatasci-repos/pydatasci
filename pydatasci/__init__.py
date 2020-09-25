@@ -19,7 +19,7 @@ def check_exists_folder():
 		print("\n=> Success - the following file path already exists on your system:\n" + app_dir + "\n")
 		return True
 	else:
-		print("\n=> Error - it appears the following folder does not exist on your system:\n" + app_dir + "\n")
+		print("\n=> Info - it appears the following folder does not exist on your system:\n" + app_dir + "\n")
 		print("\n=> Fix - you can attempt to fix this by running `pds.create_folder()`.\n")
 		return False
 
@@ -27,7 +27,7 @@ def check_exists_folder():
 def create_folder():
 	app_dir_exists = check_exists_folder()
 	if app_dir_exists:
-		print("\n=> Warning - skipping folder creation as folder already exists at file path:\n" + app_dir + "\n")
+		print("\n=> Info - skipping folder creation as folder already exists at file path:\n" + app_dir + "\n")
 	else:
 		# ToDo - windows support.
 		try:
@@ -110,7 +110,7 @@ def check_permissions_folder():
 def grant_permissions_folder():
 	permissions = check_permissions_folder()
 	if permissions:
-		print("\n=> Warning - skipping as you already have permissions to read from and write to file path:\n" + app_dir + "\n")
+		print("\n=> Info - skipping as you already have permissions to read from and write to file path:\n" + app_dir + "\n")
 	else:
 		try:
 			if os.name == 'nt':
@@ -142,7 +142,7 @@ def get_config():
 			pds_config = json.load(pds_config_file)
 			return pds_config
 	else: 
-		print("\n=> Welcome to PyDataSci.\nTo get started, run `pds.create_folder()` followed by `pds.create_config() in Python shell.\n")
+		print("\n=> Welcome to PyDataSci.\nTo get started, run `pds.create_folder()` followed by `pds.create_config()` in Python shell.\n")
 
 
 def create_config():
@@ -166,13 +166,13 @@ def create_config():
 				raise
 			print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
 		else:
-			print("\n=> Warning - skipping as config file already exists at path: " + default_config_path + "\n")
+			print("\n=> Info - skipping as config file already exists at path:\n" + default_config_path + "\n")
 
 
 def delete_config(confirm:bool=False):
 	pds_config = get_config()
 	if pds_config is None:
-		print("\n=> Warning - skipping as there is no config file to delete.\n")
+		print("\n=> Info - skipping as there is no config file to delete.\n")
 	else:
 		if confirm:
 			config_path = pds_config['config_path']
@@ -184,13 +184,13 @@ def delete_config(confirm:bool=False):
 				raise
 			print("\n=> Success - deleted config file at path:\n" + config_path + "\n")		
 		else:
-			print("\n=> Warning - skipping deletion because `confirm` arg not set to boolean `True`.\n")
+			print("\n=> Info - skipping deletion because `confirm` arg not set to boolean `True`.\n")
 
 
 def update_config(kv:dict):
 	pds_config = get_config()
 	if pds_config is None:
-		print("\n=> Warning - there is no config file to update.\n")
+		print("\n=> Info - there is no config file to update.\n")
 	else:
 		for k, v in kv.items():
 			pds_config[k] = v		

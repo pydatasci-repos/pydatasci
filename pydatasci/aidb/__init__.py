@@ -1,10 +1,14 @@
 name = "aidb"
 
-import os, sqlite3
+import os, sqlite3, io, gzip
 from datetime import datetime
 
+#orm
 from peewee import *
 from playhouse.dataset import DataSet
+#data ingestion
+import pyarrow
+from pyarrow import parquet as pq
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -69,9 +73,9 @@ def create_db():
 	tables = db.get_tables()
 	table_count = len(tables)
 	if table_count > 0:
-		print("\n=> Warning - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
+		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job])
+		db.create_tables([Job, Dataset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -94,16 +98,55 @@ def delete_db(confirm:bool=False):
 			print("\n=> Success - deleted database file at path:\n" + db_path + "\n")
 
 		else:
-			print("\n=> Warning - there is no file to delete at path:\n" + db_path + "\n")
+			print("\n=> Info - there is no file to delete at path:\n" + db_path + "\n")
 	else:
-		print("\n=> Warning - skipping deletion because `confirm` arg not set to boolean `True`.\n")
+		print("\n=> Info - skipping deletion because `confirm` arg not set to boolean `True`.\n")
+
+
+
+# ============ CRUD ============
+def create_dataset_from_file(
+	path:str, 
+	name:str=None
+):
+	#ToDo column names. pyarrow layer to handle files?
+	#ToDo indicate compressed.
+	
+	if name is None:
+		name=path
+
+	with open(path, "rb") as f:
+		bytesio = io.BytesIO(f.read())
+		blob = bytesio.getvalue()
+		gz_blob = gzip.compress(blob)
+
+	d = Dataset.create(
+		data = gz_blob,
+		name = name
+	)
+
+	return d
+
+def read_dataset():
+	pass
+	# handle types
+	# can pyarrow read csv in bytes?
 
 
 # ============ ORM ============
+# http://docs.peewee-orm.com/en/latest/peewee/models.html
 class BaseModel(Model):
-    class Meta:
-        database = get_db()
+	class Meta:
+		database = get_db()
 
 
 class Job(BaseModel):
-    title = CharField()
+	status = CharField()
+
+
+class Dataset(BaseModel):
+	name = CharField()
+	data = BlobField()
+	#storage_format = CharField() #sqlite_blob, path_single, path_partitioned
+	#original_format = pandas, numpy, file_parquet, file_parquet_gzip, file_parquet_partitions, file_csv, file_tsv
+	#compression = CharField()
