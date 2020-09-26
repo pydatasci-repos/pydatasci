@@ -11,6 +11,7 @@ from playhouse.sqlite_ext import SqliteExtDatabase, JSONField
 import pyarrow
 from pyarrow import parquet as pq
 from pyarrow import csv as pc
+import pandas as pd
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -184,30 +185,33 @@ def get_dataset(id:int):
 def read_dataset_as_pandas(id:int):
 	d = get_dataset(id)
 
-	compressed_bytes = d.data
+	data = d.data
+	is_compressed = d.is_compressed
+	ff = file_format
 	
-	if d.file_format == 'csv':
-		bytesio_compressed_csv = io.BytesIO(compressed_bytes)
-		bytesio_csv = gzip.open(bytesio_compressed_csv)
-		tbl = pc.read_csv(bytesio_csv)
+	bytesio_data = io.BytesIO(data)
+	if (ff == 'csv') or (ff == 'tsv'):
+		if is_compressed:
+			bytesio_csv = gzip.open(bytesio_data)
+			if ff == 'tsv':
+				parse_opt = pc.ParseOptions(delimiter='\t')
+				tbl = pc.read_csv(bytesio_csv, parse_options=parse_opt)
+			else:
+				tbl = pc.read_csv(bytesio_data)
+			df = tbl.to_pandas()
+		else:
+			if ff == 'tsv':
+				df = pd.read_csv(bytesio_data, sep='\t')
+			else:
+				df = pd.read_csv(bytesio_data)
+	else:
+		if is_compressed:
+			bytesio_parquet = gzip.open(bytesio_data)
+			tbl = pq.read_table(bytesio_parquet)
+		else:
+			tbl = pq.read_table(bytesio_data)
+
 		df = tbl.to_pandas()
-
-	# if d.file_format == 'parquet':
-	# 	tbl = pq.read_table(gzip_bytes)
-	# elif d.file_format == 'csv':	
-	# 	#decompress
-	# 	iobytes = io.BytesIO(gzip_bytes)
-
-	# 	#parse_opt = pc.ParseOptions(delimiter=',')
-	# 	#tbl = pc.read_csv(path)
-	# elif d.file_format == 'tsv':
-	# 	pass
-	# 	#parse_opt = pc.ParseOptions(delimiter='\t')
-	# 	#tbl = pc.read_csv(path, parse_options=parse_opt)
-
-	# # check type
-	# # then decompress `pq.read_table()` because it can read compressed parquet.
-	# # read to pandas
 	return df
 
 # def read_dataset_as_numpy():
