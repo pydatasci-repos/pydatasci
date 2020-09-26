@@ -182,13 +182,14 @@ def get_dataset(id:int):
 	d = Dataset.get_by_id(id)
 	return d
 
+
 def read_dataset_as_pandas(id:int):
 	d = get_dataset(id)
 
-	data = d.data
 	is_compressed = d.is_compressed
 	ff = file_format
 	
+	data = d.data
 	bytesio_data = io.BytesIO(data)
 	if (ff == 'csv') or (ff == 'tsv'):
 		if is_compressed:
@@ -215,7 +216,7 @@ def read_dataset_as_pandas(id:int):
 	return df
 
 # def read_dataset_as_numpy():
-# 	pass
+# 	return arr
 
 # ============ ORM ============
 # http://docs.peewee-orm.com/en/latest/peewee/models.html
