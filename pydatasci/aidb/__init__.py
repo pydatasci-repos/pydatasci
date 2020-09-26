@@ -1,6 +1,6 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip
+import os, sqlite3, io, gzip, zlib
 from datetime import datetime
 
 #orm
@@ -10,7 +10,7 @@ from playhouse.sqlite_ext import SqliteExtDatabase, JSONField
 #data ingestion
 import pyarrow
 from pyarrow import parquet as pq
-from pyarrow.csv import read_csv
+from pyarrow import csv as pc
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -109,51 +109,109 @@ def delete_db(confirm:bool=False):
 
 # ============ CRUD ============
 def create_dataset_from_file(
-	path:str, 
+	path:str,
+	file_format:str,
 	name:str=None,
 	perform_gzip:bool=True
 ):
 	"""
-	Does not accept compressed files.
+	- File is read in with pyarrow, converted to bytes, compressed by default, and stored as a SQLite blob field.
+	- Note: If you do not remove your file's index columns before importing them, then they will be included in your Dataset. The ordered nature of this column represents potential bias during analysis. You can drop these and other columns in memory when creating a Featureset from your Dataset.
+	- Note: If no column names are provided, then they will be inserted automatically.
+	- `path`: Local or absolute path
+	- `file_format`: Accepts uncompressed formats including parquet, csv, and tsv (a csv with `delimiter='\t'`). This tag is used to tell pyarrow how to handle the file. We do not infer the path because (a) we don't want to force file extensions, (b) we want to make sure users know what file formats we support.
+	- `name`: if none specified, then `path` string will be used.
+	- `perform_gzip`: Whether or not to perform gzip compression on the file. We have observed up to 90% compression rates during testing.
 	"""
 	
-	#ToDo column names. pyarrow layer to handle files?
-	#ToDo csv,tsv,parquet,gzip
-	
-	if name is None:
-		name=path
+	# create some files with no column names
+	# do some testing with sparse null column names...
+	# do some testing with all null column names...
+	accepted_formats = ['csv', 'tsv', 'parquet']
+	if file_format not in accepted_formats:
+		print("Error - Accepted file formats include uncompressed csv, tsv, and parquet.")
+	else:
+		if name is None:
+			name=path
 
-	tbl = pyarrow.csv.read_csv(path)
-	column_names = tbl.column_names
+		if perform_gzip is None:
+			perform_gzip=True
 
-	with open(path, "rb") as f:
-		bytesio = io.BytesIO(f.read())
-		data = bytesio.getvalue()
-		if perform_gzip:
-			data = gzip.compress(data)
-			is_compressed=True
-		else:
-			is_compressed=False
+		if file_format == 'csv':
+			parse_opt = pc.ParseOptions(delimiter=',')
+			tbl = pc.read_csv(path)
+		elif file_format == 'tsv':
+			parse_opt = pc.ParseOptions(delimiter='\t')
+			tbl = pc.read_csv(path, parse_options=parse_opt)
+		elif file_format == 'parquet':
+			tbl = pq.read_table(path)
 
-	d = Dataset.create(
-		name = name,
-		data = data,
-		is_compressed = is_compressed,
-		column_names = column_names
-	)
+		#ToDo - handle columns with no name.
+		column_names = tbl.column_names
 
-	return d
+		# should doooo something with it first to normalize it.
+		with open(path, "rb") as f:
+			bytesio = io.BytesIO(f.read())
+			data = bytesio.getvalue()
+			if perform_gzip:
+				data = gzip.compress(data)
+				is_compressed=True
+			else:
+				is_compressed=False
 
+		d = Dataset.create(
+			name = name,
+			data = data,
+			file_format = file_format,
+			is_compressed = is_compressed,
+			column_names = column_names
+		)
+
+		return d
 
 #def create_dataset_from_pandas():
+	#read as arrow
+	#save as parquet from some kind of buffer?
+
 #def create_dataset_from_numpy():
+	#read as arrow
+	#save as parquet from some kind of buffer?
 
+def get_dataset(id:int):
+	d = Dataset.get_by_id(id)
+	return d
 
-def read_dataset():
-	pass
-	# handle types
-	# can pyarrow read csv in bytes?
+def read_dataset_as_pandas(id:int):
+	d = get_dataset(id)
 
+	compressed_bytes = d.data
+	
+	if d.file_format == 'csv':
+		bytesio_compressed_csv = io.BytesIO(compressed_bytes)
+		bytesio_csv = gzip.open(bytesio_compressed_csv)
+		tbl = pc.read_csv(bytesio_csv)
+		df = tbl.to_pandas()
+
+	# if d.file_format == 'parquet':
+	# 	tbl = pq.read_table(gzip_bytes)
+	# elif d.file_format == 'csv':	
+	# 	#decompress
+	# 	iobytes = io.BytesIO(gzip_bytes)
+
+	# 	#parse_opt = pc.ParseOptions(delimiter=',')
+	# 	#tbl = pc.read_csv(path)
+	# elif d.file_format == 'tsv':
+	# 	pass
+	# 	#parse_opt = pc.ParseOptions(delimiter='\t')
+	# 	#tbl = pc.read_csv(path, parse_options=parse_opt)
+
+	# # check type
+	# # then decompress `pq.read_table()` because it can read compressed parquet.
+	# # read to pandas
+	return df
+
+# def read_dataset_as_numpy():
+# 	pass
 
 # ============ ORM ============
 # http://docs.peewee-orm.com/en/latest/peewee/models.html
@@ -169,8 +227,11 @@ class Job(BaseModel):
 class Dataset(BaseModel):
 	name = CharField()
 	data = BlobField()
+	file_format = CharField()
 	is_compressed = BooleanField()
 	column_names= JSONField()
 	#storage_format = CharField() #sqlite_blob, path_single, path_partitioned
 	#original_format = pandas, numpy, file_parquet, file_parquet_gzip, file_parquet_partitions, file_csv, file_tsv
 	#compression = CharField()
+
+# remember, Featureset is just columns to use from a Dataset.
