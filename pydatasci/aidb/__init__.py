@@ -7,11 +7,12 @@ from datetime import datetime
 from peewee import *
 from playhouse.dataset import DataSet
 from playhouse.sqlite_ext import SqliteExtDatabase, JSONField
-#data ingestion
+#etl
 import pyarrow
 from pyarrow import parquet as pq
 from pyarrow import csv as pc
 import pandas as pd
+import numpy as np
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -57,7 +58,7 @@ def get_dataset_ext():
 
 
 def create_db():
-	# ToDo - Could let the user specify their own db name, for import tutorials. Could check if passed as an argument to create_config?
+	# Future: Could let the user specify their own db name, for import tutorials. Could check if passed as an argument to create_config?
 	db_path = get_path_db()
 	db_exists = os.path.exists(db_path)
 	if db_exists:
@@ -149,7 +150,6 @@ def create_dataset_from_file(
 
 		#ToDo - handle columns with no name.
 		column_names = tbl.column_names
-		del tbl
 
 		# should doooo something with it first to normalize it.
 		with open(path, "rb") as f:
@@ -168,7 +168,6 @@ def create_dataset_from_file(
 			is_compressed = is_compressed,
 			column_names = column_names
 		)
-
 		return d
 
 #def create_dataset_from_pandas():
@@ -185,6 +184,9 @@ def get_dataset(id:int):
 
 
 def read_dataset_to_pandas(id:int):
+	"""
+	- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
+	"""
 	d = get_dataset(id)
 
 	is_compressed = d.is_compressed
@@ -206,7 +208,7 @@ def read_dataset_to_pandas(id:int):
 				df = pd.read_csv(bytesio_data, sep='\t')
 			else:
 				df = pd.read_csv(bytesio_data)
-	else:
+	elif ff == 'parquet':
 		if is_compressed:
 			bytesio_parquet = gzip.open(bytesio_data)
 			tbl = pq.read_table(bytesio_parquet)
@@ -215,11 +217,22 @@ def read_dataset_to_pandas(id:int):
 			df = pd.read_parquet(bytesio_data)
 	return df
 
-# def read_dataset_as_numpy():
-# 	return arr
+
+def read_dataset_to_numpy(id:int):
+	"""
+	ToDo
+	- Returns a NumPy structured array: https://numpy.org/doc/stable/user/basics.rec.html
+	- There doesn't seem to be a direct Parquet to NumPy, so have to convert through PyArrow or Pandas.
+	- Started down this path, but just switched to Pandas: `np.genfromtxt(bytesio_data, names=True, delimiter=',')`. 
+	"""
+	df = read_dataset_to_pandas(id)
+	arr = df.to_records(index=False)
+	return arr
 
 #Future: or will np suffice?
 #def read_dataset_as_pytorch_tensor():
+
+#read featureset... fetch columns 
 
 # ============ ORM ============
 # http://docs.peewee-orm.com/en/latest/peewee/models.html
@@ -238,8 +251,6 @@ class Dataset(BaseModel):
 	file_format = CharField()
 	is_compressed = BooleanField()
 	column_names= JSONField()
-	#storage_format = CharField() #sqlite_blob, path_single, path_partitioned
-	#original_format = pandas, numpy, file_parquet, file_parquet_gzip, file_parquet_partitions, file_csv, file_tsv
 	#compression = CharField()
 
 # remember, Featureset is just columns to use from a Dataset.

@@ -21,7 +21,9 @@ _pre-alpha_
 ---
 
 # Installation:
-Requires Python 3+. You will only need to do this the first time you use the package. Enter the following commands one-by-one and follow any instructions returned by the command prompt to resolve errors should they arise:
+Requires Python 3+. You will only need to perform these steps the first time you use the package. 
+
+Enter the following commands one-by-one and follow any instructions returned by the command prompt to resolve errors should they arise.
 
 _Starting from the command line:_
 ```bash
@@ -49,6 +51,8 @@ _Once inside the Python shell:_
 > * Mac: <br />`/Users/Username/Library/Application Support/pydatasci`<br /><br />
 > * Linux - Alpine and Ubuntu: <br />`/root/.local/share/pydatasci`<br /><br />
 > * Windows: <br />`C:\Users\Username\AppData\Local\pydatasci`
+>
+> `create_db()` is equivalent to a migration in Django in that it creates the tables found in the Object Relational Model (ORM). We use the [`peewee`](http://docs.peewee-orm.com/en/latest/peewee/models.html) ORM as it is simpler than SQLAlchemy, has good documentation, and found the project to be actively maintained (saw same-day GitHub response to issues on a Saturday). With the addition of Dash-Plotly, this will make for a full-stack experience that also works directly in an IDE like Jupyter or VS Code.
 
 
 ### Deleting & Recreating the Database:
@@ -69,8 +73,55 @@ When deleting the database, you need to either reload the `aidb` module or resta
 Let's get started.
 
 ```python
-# comment
+import pydatasci as pds
+from pydatasci import aidb
 ```
+
+## 1. Add a `Dataset`.
+
+Supported tabular file formats include: CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point in the project, our Parquet support is extremely minimal.
+
+The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
+
+```python
+aidb.create_dataset_from_file(
+	path 			= 'iris.tsv'
+	,file_format 	= 'tsv'
+	,name			= 'tab-separated plants'
+	,perform_gzip 	= True
+)
+```
+
+> You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
+
+## 2. Fetch a `Dataset`.
+
+Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
+
+```python
+df = aidb.read_dataset_as_pandas(id=1)
+df.head()
+
+arr = aidb.read_dataset_as_numpy(id=1)
+arr[:4]
+```
+> We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. If we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
+
+## 3. Derive a `Featureset`. 
+
+Feature selection is about finding out which columns in a dataset are important. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
+
+ToDo... do I need to make columns an argument of the `read()` functions?
+
+ToDo... do a scikitlearn regression on species?
+
+optional: select a label column?
+
+## 4. Split the dataset into `Splitsets`.
+
+
+sklearn stratify.
+
 
 ---
 
