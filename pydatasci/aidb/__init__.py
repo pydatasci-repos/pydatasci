@@ -149,6 +149,7 @@ def create_dataset_from_file(
 
 		#ToDo - handle columns with no name.
 		column_names = tbl.column_names
+		del tbl
 
 		# should doooo something with it first to normalize it.
 		with open(path, "rb") as f:
@@ -183,11 +184,11 @@ def get_dataset(id:int):
 	return d
 
 
-def read_dataset_as_pandas(id:int):
+def read_dataset_to_pandas(id:int):
 	d = get_dataset(id)
 
 	is_compressed = d.is_compressed
-	ff = file_format
+	ff = d.file_format
 	
 	data = d.data
 	bytesio_data = io.BytesIO(data)
@@ -198,7 +199,7 @@ def read_dataset_as_pandas(id:int):
 				parse_opt = pc.ParseOptions(delimiter='\t')
 				tbl = pc.read_csv(bytesio_csv, parse_options=parse_opt)
 			else:
-				tbl = pc.read_csv(bytesio_data)
+				tbl = pc.read_csv(bytesio_csv)
 			df = tbl.to_pandas()
 		else:
 			if ff == 'tsv':
@@ -209,14 +210,16 @@ def read_dataset_as_pandas(id:int):
 		if is_compressed:
 			bytesio_parquet = gzip.open(bytesio_data)
 			tbl = pq.read_table(bytesio_parquet)
+			df = tbl.to_pandas()
 		else:
-			tbl = pq.read_table(bytesio_data)
-
-		df = tbl.to_pandas()
+			df = pd.read_parquet(bytesio_data)
 	return df
 
 # def read_dataset_as_numpy():
 # 	return arr
+
+#Future: or will np suffice?
+#def read_dataset_as_pytorch_tensor():
 
 # ============ ORM ============
 # http://docs.peewee-orm.com/en/latest/peewee/models.html
