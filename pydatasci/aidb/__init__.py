@@ -108,132 +108,6 @@ def delete_db(confirm:bool=False):
 		print("\n=> Info - skipping deletion because `confirm` arg not set to boolean `True`.\n")
 
 
-
-# ============ CRUD ============
-def create_dataset_from_file(
-	path:str,
-	file_format:str,
-	name:str=None,
-	perform_gzip:bool=True
-):
-	"""
-	- File is read in with pyarrow, converted to bytes, compressed by default, and stored as a SQLite blob field.
-	- Note: If you do not remove your file's index columns before importing them, then they will be included in your Dataset. The ordered nature of this column represents potential bias during analysis. You can drop these and other columns in memory when creating a Featureset from your Dataset.
-	- Note: If no column names are provided, then they will be inserted automatically.
-	- `path`: Local or absolute path
-	- `file_format`: Accepts uncompressed formats including parquet, csv, and tsv (a csv with `delimiter='\t'`). This tag is used to tell pyarrow how to handle the file. We do not infer the path because (a) we don't want to force file extensions, (b) we want to make sure users know what file formats we support.
-	- `name`: if none specified, then `path` string will be used.
-	- `perform_gzip`: Whether or not to perform gzip compression on the file. We have observed up to 90% compression rates during testing.
-	"""
-	
-	# create some files with no column names
-	# do some testing with sparse null column names...
-	# do some testing with all null column names...
-	accepted_formats = ['csv', 'tsv', 'parquet']
-	if file_format not in accepted_formats:
-		print("Error - Accepted file formats include uncompressed csv, tsv, and parquet.")
-	else:
-		if name is None:
-			name=path
-
-		if perform_gzip is None:
-			perform_gzip=True
-
-		if file_format == 'csv':
-			parse_opt = pc.ParseOptions(delimiter=',')
-			tbl = pc.read_csv(path)
-		elif file_format == 'tsv':
-			parse_opt = pc.ParseOptions(delimiter='\t')
-			tbl = pc.read_csv(path, parse_options=parse_opt)
-		elif file_format == 'parquet':
-			tbl = pq.read_table(path)
-
-		#ToDo - handle columns with no name.
-		column_names = tbl.column_names
-
-		# should doooo something with it first to normalize it.
-		with open(path, "rb") as f:
-			bytesio = io.BytesIO(f.read())
-			data = bytesio.getvalue()
-			if perform_gzip:
-				data = gzip.compress(data)
-				is_compressed=True
-			else:
-				is_compressed=False
-
-		d = Dataset.create(
-			name = name,
-			data = data,
-			file_format = file_format,
-			is_compressed = is_compressed,
-			column_names = column_names
-		)
-		return d
-
-#def create_dataset_from_pandas():
-	#read as arrow
-	#save as parquet from some kind of buffer?
-
-#def create_dataset_from_numpy():
-	#read as arrow
-	#save as parquet from some kind of buffer?
-
-def get_dataset(id:int):
-	d = Dataset.get_by_id(id)
-	return d
-
-
-def read_dataset_to_pandas(id:int):
-	"""
-	- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
-	"""
-	d = get_dataset(id)
-
-	is_compressed = d.is_compressed
-	ff = d.file_format
-	
-	data = d.data
-	bytesio_data = io.BytesIO(data)
-	if (ff == 'csv') or (ff == 'tsv'):
-		if is_compressed:
-			bytesio_csv = gzip.open(bytesio_data)
-			if ff == 'tsv':
-				parse_opt = pc.ParseOptions(delimiter='\t')
-				tbl = pc.read_csv(bytesio_csv, parse_options=parse_opt)
-			else:
-				tbl = pc.read_csv(bytesio_csv)
-			df = tbl.to_pandas()
-		else:
-			if ff == 'tsv':
-				df = pd.read_csv(bytesio_data, sep='\t')
-			else:
-				df = pd.read_csv(bytesio_data)
-	elif ff == 'parquet':
-		if is_compressed:
-			bytesio_parquet = gzip.open(bytesio_data)
-			tbl = pq.read_table(bytesio_parquet)
-			df = tbl.to_pandas()
-		else:
-			df = pd.read_parquet(bytesio_data)
-	return df
-
-
-def read_dataset_to_numpy(id:int):
-	"""
-	ToDo
-	- Returns a NumPy structured array: https://numpy.org/doc/stable/user/basics.rec.html
-	- There doesn't seem to be a direct Parquet to NumPy, so have to convert through PyArrow or Pandas.
-	- Started down this path, but just switched to Pandas: `np.genfromtxt(bytesio_data, names=True, delimiter=',')`. 
-	"""
-	df = read_dataset_to_pandas(id)
-	arr = df.to_records(index=False)
-	return arr
-
-#Future: or will np suffice?
-#def read_dataset_as_pytorch_tensor():
-
-#read featureset... fetch columns 
-
 # ============ ORM ============
 # http://docs.peewee-orm.com/en/latest/peewee/models.html
 class BaseModel(Model):
@@ -252,5 +126,126 @@ class Dataset(BaseModel):
 	is_compressed = BooleanField()
 	column_names= JSONField()
 	#compression = CharField()
+
+	def create_from_file(
+		path:str,
+		file_format:str,
+		name:str=None,
+		perform_gzip:bool=True
+	):
+		"""
+		- File is read in with pyarrow, converted to bytes, compressed by default, and stored as a SQLite blob field.
+		- Note: If you do not remove your file's index columns before importing them, then they will be included in your Dataset. The ordered nature of this column represents potential bias during analysis. You can drop these and other columns in memory when creating a Featureset from your Dataset.
+		- Note: If no column names are provided, then they will be inserted automatically.
+		- `path`: Local or absolute path
+		- `file_format`: Accepts uncompressed formats including parquet, csv, and tsv (a csv with `delimiter='\t'`). This tag is used to tell pyarrow how to handle the file. We do not infer the path because (a) we don't want to force file extensions, (b) we want to make sure users know what file formats we support.
+		- `name`: if none specified, then `path` string will be used.
+		- `perform_gzip`: Whether or not to perform gzip compression on the file. We have observed up to 90% compression rates during testing.
+		"""
+		
+		# create some files with no column names
+		# do some testing with sparse null column names...
+		# do some testing with all null column names...
+		accepted_formats = ['csv', 'tsv', 'parquet']
+		if file_format not in accepted_formats:
+			print("Error - Accepted file formats include uncompressed csv, tsv, and parquet.")
+		else:
+			if name is None:
+				name=path
+
+			if perform_gzip is None:
+				perform_gzip=True
+
+			if file_format == 'csv':
+				parse_opt = pc.ParseOptions(delimiter=',')
+				tbl = pc.read_csv(path)
+			elif file_format == 'tsv':
+				parse_opt = pc.ParseOptions(delimiter='\t')
+				tbl = pc.read_csv(path, parse_options=parse_opt)
+			elif file_format == 'parquet':
+				tbl = pq.read_table(path)
+
+			#ToDo - handle columns with no name.
+			column_names = tbl.column_names
+
+			# should doooo something with it first to normalize it.
+			with open(path, "rb") as f:
+				bytesio = io.BytesIO(f.read())
+				data = bytesio.getvalue()
+				if perform_gzip:
+					data = gzip.compress(data)
+					is_compressed=True
+				else:
+					is_compressed=False
+
+			d = Dataset.create(
+				name = name,
+				data = data,
+				file_format = file_format,
+				is_compressed = is_compressed,
+				column_names = column_names
+			)
+			return d
+
+
+	def read_to_pandas(id:int):
+		"""
+		- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
+		"""
+		d = Dataset.get_by_id(id)
+
+		is_compressed = d.is_compressed
+		ff = d.file_format
+		
+		data = d.data
+		bytesio_data = io.BytesIO(data)
+		if (ff == 'csv') or (ff == 'tsv'):
+			if is_compressed:
+				bytesio_csv = gzip.open(bytesio_data)
+				if ff == 'tsv':
+					parse_opt = pc.ParseOptions(delimiter='\t')
+					tbl = pc.read_csv(bytesio_csv, parse_options=parse_opt)
+				else:
+					tbl = pc.read_csv(bytesio_csv)
+				df = tbl.to_pandas()
+			else:
+				if ff == 'tsv':
+					df = pd.read_csv(bytesio_data, sep='\t')
+				else:
+					df = pd.read_csv(bytesio_data)
+		elif ff == 'parquet':
+			if is_compressed:
+				bytesio_parquet = gzip.open(bytesio_data)
+				tbl = pq.read_table(bytesio_parquet)
+				df = tbl.to_pandas()
+			else:
+				df = pd.read_parquet(bytesio_data)
+		return df
+
+
+	def read_to_numpy(id:int):
+		"""
+		- Returns a NumPy structured array: https://numpy.org/doc/stable/user/basics.rec.html
+		- Started implementing `np.genfromtxt(bytesio_data, names=True, delimiter=',')`, but just switched to Pandas.
+		- There doesn't seem to be a direct Parquet to NumPy, so have to convert through PyArrow or Pandas.
+		"""
+		df = Dataset.read_to_pandas(id)
+		arr = df.to_records(index=False)
+		return arr
+
+	#def create_dataset_from_pandas():
+		#read as arrow
+		#save as parquet from some kind of buffer?
+
+	#def create_dataset_from_numpy():
+		#read as arrow
+		#save as parquet from some kind of buffer?
+
+
+	#Future: or will np suffice?
+	#def read_dataset_as_pytorch_tensor():
+
+	#read featureset... fetch columns 
+
 
 # remember, Featureset is just columns to use from a Dataset.

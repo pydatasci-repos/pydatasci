@@ -84,7 +84,7 @@ Supported tabular file formats include: CSV, [TSV](https://stackoverflow.com/a/9
 The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
 
 ```python
-aidb.create_dataset_from_file(
+aidb.Dataset.create_from_file(
 	path 			= 'iris.tsv'
 	,file_format 	= 'tsv'
 	,name			= 'tab-separated plants'
