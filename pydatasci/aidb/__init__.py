@@ -80,7 +80,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset])
+		db.create_tables([Job, Dataset, Label, Featureset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -122,16 +122,17 @@ class Job(BaseModel):
 class Dataset(BaseModel):
 	name = CharField()
 	data = BlobField()
+	category = CharField() #tabular, image, longitudinal
 	file_format = CharField()
 	is_compressed = BooleanField()
 	column_names= JSONField()
 	#compression = CharField()
 
 	def create_from_file(
-		path:str,
-		file_format:str,
-		name:str=None,
-		perform_gzip:bool=True
+		path:str
+		,file_format:str
+		,name:str=None
+		,perform_gzip:bool=True
 	):
 		"""
 		- File is read in with pyarrow, converted to bytes, compressed by default, and stored as a SQLite blob field.
@@ -150,12 +151,13 @@ class Dataset(BaseModel):
 		if file_format not in accepted_formats:
 			print("Error - Accepted file formats include uncompressed csv, tsv, and parquet.")
 		else:
+			# Defaults.
 			if name is None:
 				name=path
-
 			if perform_gzip is None:
 				perform_gzip=True
 
+			# File formats.
 			if file_format == 'csv':
 				parse_opt = pc.ParseOptions(delimiter=',')
 				tbl = pc.read_csv(path)
@@ -164,6 +166,9 @@ class Dataset(BaseModel):
 				tbl = pc.read_csv(path, parse_options=parse_opt)
 			elif file_format == 'parquet':
 				tbl = pq.read_table(path)
+
+			# Category
+			category = 'tabular'
 
 			#ToDo - handle columns with no name.
 			column_names = tbl.column_names
@@ -179,11 +184,12 @@ class Dataset(BaseModel):
 					is_compressed=False
 
 			d = Dataset.create(
-				name = name,
-				data = data,
-				file_format = file_format,
-				is_compressed = is_compressed,
-				column_names = column_names
+				name = name
+				,data = data
+				,file_format = file_format
+				,is_compressed = is_compressed
+				,column_names = column_names
+				,category = category
 			)
 			return d
 
@@ -233,6 +239,18 @@ class Dataset(BaseModel):
 		arr = df.to_records(index=False)
 		return arr
 
+	"""
+	Future:
+	- Read as Tensors (pytorch and tf)? Or will numpy suffice?
+	- Longitudinal data?
+	- Images?
+	"""
+
+	"""
+	ToDo
+	- read featureset... fetch columns
+	- check that columns are actually named.
+
 	#def create_dataset_from_pandas():
 		#read as arrow
 		#save as parquet from some kind of buffer?
@@ -240,12 +258,36 @@ class Dataset(BaseModel):
 	#def create_dataset_from_numpy():
 		#read as arrow
 		#save as parquet from some kind of buffer?
+	"""
+
+class Label(BaseModel):
+	column_name=CharField()
+	
+	dataset = ForeignKeyField(Dataset, backref='labels')
+	
+	def create_from_dataset(
+		dataset_id:int
+		,column_name:str
+	):
+		d = Dataset.get_by_id(dataset_id)
+
+		# verify that the column exists
+		d_columns = d.column_names
+		column_exists = column_name in d_columns
+		if column_exists:
+			l = Label.create(
+				dataset=d
+				,column_name=column_name
+			)
+			return l
+		else:
+			print("Error - Column name not found in `Dataset.column_names`.")
+			return None
 
 
-	#Future: or will np suffice?
-	#def read_dataset_as_pytorch_tensor():
+class Featureset(BaseModel):
+	pass
+	"""
+	- Remember, Featureset is just columns to use from a Dataset.
+	"""
 
-	#read featureset... fetch columns 
-
-
-# remember, Featureset is just columns to use from a Dataset.
