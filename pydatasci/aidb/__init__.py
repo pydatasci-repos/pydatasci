@@ -273,8 +273,8 @@ class Label(BaseModel):
 
 		# verify that the column exists
 		d_columns = d.column_names
-		column_exists = column_name in d_columns
-		if column_exists:
+		column_found = column_name in d_columns
+		if column_found:
 			l = Label.create(
 				dataset=d
 				,column_name=column_name
@@ -305,9 +305,9 @@ class Featureset(BaseModel):
 		# test that all Featureset columns exist in the Dataset
 		f_cols = column_names
 		d_cols = d.column_names
-		all_columns_exist = all(elem in d_cols for elem in f_cols)
+		all_columns_found = all(elem in d_cols for elem in f_cols)
 
-		if all_columns_exist:
+		if all_columns_found:
 			
 			if label_id is None:
 				l=None
@@ -318,7 +318,7 @@ class Featureset(BaseModel):
 			if run_PCA == None:
 				run_PCA()
 			"""
-			
+
 			f = Featureset.create(
 				dataset=d
 				,column_names=column_names
@@ -328,3 +328,23 @@ class Featureset(BaseModel):
 		else:
 			print("Error - Not all column names not found in `Dataset.column_names`.")
 			return None
+
+	def create_all_cols_but_label(
+		dataset_id:int
+		,label_id:int
+	):
+		d = Dataset.get_by_id(dataset_id)
+		l = Label.get_by_id(label_id)
+
+		label_col = l.column_name
+		dataset_cols = d.column_names
+		# this is overwrites the original list.
+		dataset_cols.remove(label_col)
+
+		# within the same class, Featureset == self
+		f = Featureset.create_from_dataset(
+			dataset_id = dataset_id
+			,column_names = dataset_cols
+			,label_id = label_id
+		)
+		return f

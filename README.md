@@ -94,22 +94,40 @@ aidb.Dataset.create_from_file(
 
 > You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
 
-## 2. Fetch a `Dataset`.
+### Fetch a `Dataset`.
 
 Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
 
 ```python
-df = aidb.read_dataset_as_pandas(id=1)
+df = aidb.Dataset.read_to_pandas(id=1)
 df.head()
 
-arr = aidb.read_dataset_as_numpy(id=1)
+arr = aidb.Dataset.read_to_numpy(id=1)
 arr[:4]
 ```
 > We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. If we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-## 3. Derive a `Featureset`. 
+## 2. Derive a `Label` from a Dataset column.
 
-Feature selection is about finding out which columns in a dataset are important. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
+From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
+
+```python
+aidb.Label.create_from_dataset(dataset_id=1, column_name='target')
+```
+
+## 3. Derive a `Featureset` of columns from a Dataset.
+
+From a Dataset, select the columns that you want to use in order to predict the label.
+
+Feature selection is about finding out which columns in your data are most important. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
+
+```python
+aidb.Featureset.create_from_dataset(
+	dataset_id=1
+	,column_names=['','']
+	,label_id=1 #<-- again, this is optional
+)
+```
 
 ToDo... do I need to make columns an argument of the `read()` functions?
 
