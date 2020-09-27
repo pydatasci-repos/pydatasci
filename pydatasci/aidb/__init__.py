@@ -286,8 +286,45 @@ class Label(BaseModel):
 
 
 class Featureset(BaseModel):
-	pass
+	column_names = JSONField()
+
+	dataset = ForeignKeyField(Dataset, backref='featuresets')
+	label = ForeignKeyField(Label, backref='featuresets', default=None)
 	"""
 	- Remember, Featureset is just columns to use from a Dataset.
+	- PCA components vary across featuresets. When different columns are used those columns have different component values.
 	"""
 
+	def create_from_dataset(
+		dataset_id:int
+		,column_names:list
+		,label_id:int=None
+	):
+		d = Dataset.get_by_id(dataset_id)
+
+		# test that all Featureset columns exist in the Dataset
+		f_cols = column_names
+		d_cols = d.column_names
+		all_columns_exist = all(elem in d_cols for elem in f_cols)
+
+		if all_columns_exist:
+			
+			if label_id is None:
+				l=None
+			else:
+				l = Label.get_by_id(label_id)
+ 
+			"""
+			if run_PCA == None:
+				run_PCA()
+			"""
+
+			f = Featureset.create(
+				dataset=d
+				,column_names=column_names
+				,label=l
+			)
+			return f
+		else:
+			print("Error - Not all column names not found in `Dataset.column_names`.")
+			return None
