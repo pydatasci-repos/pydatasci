@@ -287,9 +287,10 @@ class Label(BaseModel):
 
 class Featureset(BaseModel):
 	column_names = JSONField()
+	tags = JSONField()
 
 	dataset = ForeignKeyField(Dataset, backref='featuresets')
-	label = ForeignKeyField(Label, backref='featuresets', default=None)
+	label = DeferredForeignKey('Label', null=True)#, default=None, backref='featuresets')
 	"""
 	- Remember, Featureset is just columns to use from a Dataset.
 	- PCA components vary across featuresets. When different columns are used those columns have different component values.
@@ -302,32 +303,49 @@ class Featureset(BaseModel):
 	):
 		d = Dataset.get_by_id(dataset_id)
 
-		# test that all Featureset columns exist in the Dataset
+		
 		f_cols = column_names
 		d_cols = d.column_names
-		all_columns_found = all(elem in d_cols for elem in f_cols)
-
-		if all_columns_found:
-			
-			if label_id is None:
-				l=None
-			else:
+		# Test that all Featureset columns exist in the Dataset and vice versa.
+		all_f_cols_found = all(i in d_cols for i in f_cols)
+		# The whole transaction is dirty if it isn't.
+		if all_f_cols_found:
+			tags=[]
+			if label_id is not None:
 				l = Label.get_by_id(label_id)
- 
-			"""
-			if run_PCA == None:
-				run_PCA()
-			"""
+				l_col = l.column_name
+				contains_label = l_col in f_cols
+				if contains_label:
+					raise ValueError("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
+				else:
+					tags.append("supervised")
+					# Prior to checking the reverse, remove the Label column.
+					d_cols.remove(l_col)
+					all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
+					d_cols.append(l_col)
+					if all_d_cols_found_but_label:
+						tags.append("all_dataset_features")
+					else:
+						tags.append("not_all_dataset_features")
+			else:
+				l = None
+				tags.append("unsupervised")
+				all_d_cols_found = all(i in f_cols for i in d_cols)
+				if all_d_cols_found:
+					tags.append("all_dataset_columns")
+				else:
+					tags.append("not_all_dataset_columns")				
 
 			f = Featureset.create(
 				dataset=d
-				,column_names=column_names
 				,label=l
+				,column_names=column_names
+				,tags=tags
 			)
 			return f
 		else:
-			print("Error - Not all column names not found in `Dataset.column_names`.")
-			return None
+			raise ValueError("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(d_cols) + "\n")
+
 
 	def create_all_cols_but_label(
 		dataset_id:int

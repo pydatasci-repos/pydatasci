@@ -1,0 +1,6 @@
+import pydatasci as pds; from pydatasci import aidb; import os, sqlite3, io, gzip, pandas as pd
+
+from importlib import reload; aidb.delete_db(True); reload(aidb); aidb.create_db()
+
+
+aidb.Dataset.create_from_file("iris.csv’,’csv’)
