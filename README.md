@@ -105,14 +105,14 @@ df.head()
 arr = aidb.Dataset.read_to_numpy(id=1)
 arr[:4]
 ```
-> We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. If we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
+> We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
 ## 2. For supervised learning, target a `Label` from your Dataset.
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
 ```python
-aidb.Label.create_from_dataset(dataset_id=1, column_name='target')
+aidb.Label.create_from_dataset(dataset_id=1, column_name='species')
 ```
 
 ## 3. Derive a `Featureset` of columns from a Dataset.
@@ -123,7 +123,7 @@ This won't duplicate your data, but rather it simply denotes the `column_names` 
 d = aidb.Dataset.get_by_id(1)
 ```
 
-#### a) `Supervisedset`'s are tied to an existing `Label` that you want to predict.
+#### a) An `Supervisedset` is tied to an existing `Label` that you want to predict.
 
 ```python
 l = aidb.Label.get_by_id(1)
@@ -138,11 +138,11 @@ aidb.Supervisedset.create_all_columns_except_label(
 aidb.Supervisedset.create_from_dataset(
 	dataset_id = d.id
 	,label_id = l.id
-	,column_names = ['petal width (cm)', 'petal length (cm)']
+	,column_names = ['petal_width', 'petal_length']
 )
 ```
 
-#### b) `Unsupervisedset`'s are for studying variance within a `Dataset` irrespective of a `Label`.
+#### b) An `Unsupervisedset` is for studying variance within a `Dataset` irrespective of a `Label`.
 
 Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
@@ -150,11 +150,10 @@ Feature selection is about finding out which columns in your data are most infor
 # Easy mode:
 aidb.Unsupervisedset.create_all_columns(dataset_id = d.id)
 
-
 # Or if you want to specify columns:
 aidb.Unsupervisedset.create_from_dataset_columns(
 	dataset_id = d.id,
-	column_names = ['petal width (cm)']
+	column_names = ['petal_width']
 )
 ```
 
