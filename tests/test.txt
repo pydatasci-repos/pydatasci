@@ -9,9 +9,6 @@ l = aidb.Label.create_from_dataset(1,'target')
 
 
 
-
-
-
 s1 = aidb.Supervisedset.create_from_dataset_columns(dataset_id=d.id, label_id=l.id, column_names=['petal width (cm)'])
 s1.tags
 
@@ -23,3 +20,5 @@ s3.tags
 
 s4 = aidb.Unsupervisedset.create_all_columns(dataset_id=d.id)
 s4.tags
+
+
