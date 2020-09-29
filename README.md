@@ -70,7 +70,7 @@ When deleting the database, you need to either reload the `aidb` module or resta
 
 # Usage
 
-Let's get started.
+If you've already completed the *Installation* section above, let's get started.
 
 ```python
 import pydatasci as pds
@@ -123,7 +123,7 @@ This won't duplicate your data, but rather it simply denotes the `column_names` 
 d = aidb.Dataset.get_by_id(1)
 ```
 
-### a) `Supervisedset`'s are tied to an existing `Label` that you want to predict.
+#### a) `Supervisedset`'s are tied to an existing `Label` that you want to predict.
 
 ```python
 l = aidb.Label.get_by_id(1)
@@ -142,9 +142,9 @@ aidb.Supervisedset.create_from_dataset(
 )
 ```
 
-### b) `Unsupervisedset`'s are for studying variance within a `Dataset` irrespective of a `Label`.
+#### b) `Unsupervisedset`'s are for studying variance within a `Dataset` irrespective of a `Label`.
 
-Feature selection is about finding out which columns in your data are most important. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
+Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
 ```python
 # Easy mode:
@@ -159,13 +159,13 @@ aidb.Unsupervisedset.create_all_columns(dataset_id = d.id)
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
 
-### a) One set containing **train-test** splits.
+#### a) One set containing **train-test** splits.
 
-### b) One set containing **train-validate-test** splits.
+#### b) One set containing **train-validate-test** splits.
 
-### c) k-fold sets containing **train-test** splits.
+#### c) k-fold sets containing **train-test** splits.
 
-### d) k-fold sets containing **train-validate-test** splits.
+#### d) k-fold sets containing **train-validate-test** splits.
 
 
 ## 5. Create an `Algorithm` aka model to fit to your splits.
