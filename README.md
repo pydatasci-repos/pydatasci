@@ -148,13 +148,14 @@ Feature selection is about finding out which columns in your data are most infor
 
 ```python
 # Easy mode:
+aidb.Unsupervisedset.create_all_columns(dataset_id = d.id)
+
+
+# Or if you want to specify columns:
 aidb.Unsupervisedset.create_from_dataset_columns(
 	dataset_id = d.id,
 	column_names = ['petal width (cm)']
 )
-
-# # Or if you want to specify columns:
-aidb.Unsupervisedset.create_all_columns(dataset_id = d.id)
 ```
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
