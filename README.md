@@ -117,28 +117,54 @@ aidb.Label.create_from_dataset(dataset_id=1, column_name='target')
 
 ## 3. Derive a `Featureset` of columns from a Dataset.
 
-From a Dataset, select the columns that you want to use in order to predict the label.
+```python
+d = aidb.Dataset.get_by_id(1)
+```
+
+### a) `Supervisedset` for a set of features tied to an existing `Label` that you want to predict.
+
+```python
+l = aidb.Label.get_by_id(1)
+
+# Easy mode:
+aidb.Supervisedset.create_all_columns_except_label(
+	dataset_id=d.id
+	,label_id=l.id
+)
+
+# Or if you have already selected specific features:
+aidb.Supervisedset.create_from_dataset(
+	dataset_id=d.id
+	,label_id=l.id
+	,column_names=['petal width (cm)', 'petal length (cm)']
+)
+```
+
+### b) `Unsupervisedset` for a set of features whose variance you want to understand irrespective of a `Label`.
 
 Feature selection is about finding out which columns in your data are most important. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
 ```python
-aidb.Featureset.create_from_dataset(
-	dataset_id=1
-	,column_names=['','']
-	,label_id=1 #<-- again, this is optional
+# Easy mode:
+aidb.Unsupervisedset.create_from_dataset_columns(
+	dataset_id=d.id,
+	column_names=['petal width (cm)']
 )
+
+# # Or if you want to specify columns:
+aidb.Unsupervisedset.create_all_columns(dataset_id=d.id)
 ```
 
-ToDo... do I need to make columns an argument of the `read()` functions?
-
-ToDo... do a scikitlearn regression on species?
-
-optional: select a label column?
-
-## 4. Split the dataset into `Splitsets`.
+## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
 
 
-sklearn stratify.
+## 5. Create an `Algorithm` aka model to fit to your splits.
+
+
+## 6. Create combinations of hyperparameters for your algorithms.
+
+
+## 7. `Jobs` will automatically be created for each of your splits and paramsets.
 
 
 ---
