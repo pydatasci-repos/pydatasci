@@ -153,7 +153,7 @@ aidb.Unsupervisedset.create_all_columns(dataset_id = d.id)
 # Or if you want to specify columns:
 aidb.Unsupervisedset.create_from_dataset_columns(
 	dataset_id = d.id,
-	column_names = ['petal_width']
+	column_names = ['petal_width', 'petal_width', 'sepal_length']
 )
 ```
 
