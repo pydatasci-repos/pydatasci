@@ -3,4 +3,23 @@ import pydatasci as pds; from pydatasci import aidb; import os, sqlite3, io, gzi
 from importlib import reload; aidb.delete_db(True); reload(aidb); aidb.create_db()
 
 
-aidb.Dataset.create_from_file("iris.csv’,’csv’)
+d = aidb.Dataset.create_from_file('iris.csv','csv')
+
+l = aidb.Label.create_from_dataset(1,'target')
+
+
+
+
+
+
+s1 = aidb.Supervisedset.create_from_dataset_columns(dataset_id=d.id, label_id=l.id, column_names=['petal width (cm)'])
+s1.tags
+
+s2 = aidb.Supervisedset.create_all_columns_except_label(dataset_id=d.id, label_id=l.id)
+s2.tags
+
+s3 = aidb.Unsupervisedset.create_from_dataset_columns(dataset_id=d.id, column_names=['petal width (cm)'])
+s3.tags
+
+s4 = aidb.Unsupervisedset.create_all_columns(dataset_id=d.id)
+s4.tags

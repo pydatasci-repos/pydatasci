@@ -80,7 +80,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset])
+		db.create_tables([Job, Dataset, Label, Supervisedset, Unsupervisedset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -286,23 +286,27 @@ class Label(BaseModel):
 
 
 class Featureset(BaseModel):
+	"""
+	- Unsupervised featuresets do not have a label ForeignKey, whereas Supervised featuresets do, which results in NULL ForeignKey errors.
+	^ As a workaround, I originally got `DeferredForeignKey('Label',null=True)` with `tags=[supervised,unsupervised]` working.
+	^ However, `.label` only returned an integer not object, `backref` didn't work, and subclass models are so simple.
+	"""
 	column_names = JSONField()
 	tags = JSONField()
-
+	
 	dataset = ForeignKeyField(Dataset, backref='featuresets')
-	label = DeferredForeignKey('Label', null=True)#, default=None, backref='featuresets')
-	"""
-	- Remember, Featureset is just columns to use from a Dataset.
-	- PCA components vary across featuresets. When different columns are used those columns have different component values.
-	"""
 
-	def create_from_dataset(
+
+class Supervisedset(Featureset):
+	# Inherits attributes from Featureset.
+	label = ForeignKeyField(Label, backref='features')
+
+	def create_from_dataset_columns(
 		dataset_id:int
 		,column_names:list
-		,label_id:int=None
+		,label_id:int
 	):
 		d = Dataset.get_by_id(dataset_id)
-
 		
 		f_cols = column_names
 		d_cols = d.column_names
@@ -311,32 +315,22 @@ class Featureset(BaseModel):
 		# The whole transaction is dirty if it isn't.
 		if all_f_cols_found:
 			tags=[]
-			if label_id is not None:
-				l = Label.get_by_id(label_id)
-				l_col = l.column_name
-				contains_label = l_col in f_cols
-				if contains_label:
-					raise ValueError("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
-				else:
-					tags.append("supervised")
-					# Prior to checking the reverse, remove the Label column.
-					d_cols.remove(l_col)
-					all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
-					d_cols.append(l_col)
-					if all_d_cols_found_but_label:
-						tags.append("all_dataset_features")
-					else:
-						tags.append("not_all_dataset_features")
+			l = Label.get_by_id(label_id)
+			l_col = l.column_name
+			contains_label = l_col in f_cols
+			if contains_label:
+				raise ValueError("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
 			else:
-				l = None
-				tags.append("unsupervised")
-				all_d_cols_found = all(i in f_cols for i in d_cols)
-				if all_d_cols_found:
-					tags.append("all_dataset_columns")
+				# Prior to checking the reverse, remove the Label column.
+				d_cols.remove(l_col)
+				all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
+				d_cols.append(l_col)
+				if all_d_cols_found_but_label:
+					tags.append("all_dataset_features_except_label")
 				else:
-					tags.append("not_all_dataset_columns")				
+					tags.append("not_all_dataset_features")		
 
-			f = Featureset.create(
+			f = Supervisedset.create(
 				dataset=d
 				,label=l
 				,column_names=column_names
@@ -344,10 +338,10 @@ class Featureset(BaseModel):
 			)
 			return f
 		else:
-			raise ValueError("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(d_cols) + "\n")
+			print("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(f_cols) + "\n")
+			return None
 
-
-	def create_all_cols_but_label(
+	def create_all_columns_except_label(
 		dataset_id:int
 		,label_id:int
 	):
@@ -356,13 +350,62 @@ class Featureset(BaseModel):
 
 		label_col = l.column_name
 		dataset_cols = d.column_names
-		# this is overwrites the original list.
+		# This is overwrites the list, excluding the label.
 		dataset_cols.remove(label_col)
 
-		# within the same class, Featureset == self
-		f = Featureset.create_from_dataset(
+		s = Supervisedset.create_from_dataset_columns(
 			dataset_id = dataset_id
 			,column_names = dataset_cols
 			,label_id = label_id
 		)
-		return f
+		return s
+
+class Unsupervisedset(Featureset):
+	"""
+	- Inherits attributes from Featureset. 
+	- PCA components vary across featuresets. When different column combinations are used the same column will have different component values.
+	"""
+
+	def create_from_dataset_columns(
+		dataset_id:int
+		,column_names:list
+
+	):
+		d = Dataset.get_by_id(dataset_id)
+		
+		f_cols = column_names
+		d_cols = d.column_names
+		# Test that all Featureset columns exist in the Dataset and vice versa.
+		all_f_cols_found = all(i in d_cols for i in f_cols)
+		# The whole transaction is dirty if it isn't.
+		if all_f_cols_found:
+			tags=[]
+			
+			all_d_cols_found = all(i in f_cols for i in d_cols)
+			if all_d_cols_found:
+				tags.append("all_dataset_columns")
+			else:
+				tags.append("not_all_dataset_columns")		
+
+			u = Unsupervisedset.create(
+				dataset=d
+				,column_names=column_names
+				,tags=tags
+			)
+			return u
+		else:
+			print("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(f_cols) + "\n")
+			return None
+
+	def create_all_columns(
+		dataset_id:int
+	):
+		d = Dataset.get_by_id(dataset_id)
+
+		dataset_cols = d.column_names
+
+		u = Unsupervisedset.create_from_dataset_columns(
+			dataset_id = dataset_id
+			,column_names = dataset_cols
+		)
+		return u
