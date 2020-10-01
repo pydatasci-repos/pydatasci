@@ -85,7 +85,7 @@ Supported tabular file formats include: CSV, [TSV](https://stackoverflow.com/a/9
 The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
 
 ```python
-aidb.Dataset.create_from_file(
+dataset = aidb.Dataset.create_from_file(
 	path = 'iris.tsv'
 	,file_format = 'tsv'
 	,name = 'tab-separated plants'
@@ -99,62 +99,68 @@ aidb.Dataset.create_from_file(
 
 Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
 
+#### Pandas
 ```python
-df = aidb.Dataset.read_to_pandas(id=1)
+df = dataset.read_to_pandas()
 df.head()
 
-arr = aidb.Dataset.read_to_numpy(id=1)
+df2 = aidb.Dataset.read_to_pandas(id=1)
+df2.head()
+```
+
+#### NumPy
+```python
+arr = dataset.read_to_numpy()
 arr[:4]
+
+arr2 = aidb.Dataset.read_to_numpy(id=1)
+arr2[:4]
 ```
 > We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-## 2. For supervised learning, target a `Label` from your Dataset.
+## 2. Create a `Label` if you want to perform *supervised learning* (aka predict a specific column).
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
 ```python
-aidb.Label.create_from_dataset(dataset_id=1, column_name='species')
+label = aidb.Label.create_from_dataset(
+	dataset_id=1
+	,column_name='species'
+)
 ```
 
 ## 3. Derive a `Featureset` of columns from a Dataset.
 
-This won't duplicate your data, but rather it simply denotes the `column_names` to be used in training.
+This won't duplicate your data. It simply records the `column_names` to be used in training.
 
 ```python
-d = aidb.Dataset.get_by_id(1)
-```
-
-#### a) An `Supervisedset` is tied to an existing `Label` that you want to predict.
+#### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
 ```python
-l = aidb.Label.get_by_id(1)
-
-# Easy mode:
-aidb.Supervisedset.create_all_columns_except_label(
-	dataset_id = d.id
-	,label_id = l.id
+supervised_featureset_bruteforce = aidb.Featureset.create_all_columns(
+	dataset_id = 1
+	,label_id = 1
 )
 
-# Or if you have already selected specific features:
-aidb.Supervisedset.create_from_dataset(
-	dataset_id = d.id
-	,label_id = l.id
+supervised_featureset_selective = aidb.Featureset.create_from_dataset_columns(
+	dataset_id = 1
+	,label_id = 1
 	,column_names = ['petal_width', 'petal_length']
 )
 ```
 
-#### b) An `Unsupervisedset` is for studying variance within a `Dataset` irrespective of a `Label`.
+#### b) For *unsupervised learning* (aka studying variance within a `Dataset`), leave the `Label` blank.
 
 Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
 ```python
-# Easy mode:
-aidb.Unsupervisedset.create_all_columns(dataset_id = d.id)
+unsupervised_featureset_bruteforce = aidb.Featureset.create_all_columns(
+	dataset_id = 1
+)
 
-# Or if you want to specify columns:
-aidb.Unsupervisedset.create_from_dataset_columns(
-	dataset_id = d.id,
-	column_names = ['petal_width', 'petal_width', 'sepal_length']
+aidb.Featureset.create_from_dataset_columns(
+	dataset_id = 1
+	,column_names = ['petal_width', 'petal_width', 'sepal_length']
 )
 ```
 
