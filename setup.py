@@ -15,8 +15,10 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'appdirs',
+        'numpy',
+        'pandas',
         'peewee',
-        'pyarrow'
+        'pyarrow',
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

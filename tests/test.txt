@@ -9,16 +9,28 @@ l = aidb.Label.create_from_dataset(1,'target')
 
 
 
-s1 = aidb.Supervisedset.create_from_dataset_columns(dataset_id=d.id, label_id=l.id, column_names=['petal width (cm)'])
-s1.tags
 
-s2 = aidb.Supervisedset.create_all_columns_except_label(dataset_id=d.id, label_id=l.id)
-s2.tags
 
-s3 = aidb.Unsupervisedset.create_from_dataset_columns(dataset_id=d.id, column_names=['petal width (cm)'])
-s3.tags
+f1 = aidb.Featureset.create_from_dataset_columns(dataset_id=d.id, label_id=l.id, column_names=['petal width (cm)'])
+f1.tags
+f1.supervision
+f1.label
 
-s4 = aidb.Unsupervisedset.create_all_columns(dataset_id=d.id)
-s4.tags
 
+f2 = aidb.Featureset.create_all_columns(dataset_id=d.id, label_id=l.id)
+f2.tags
+f2.supervision
+f2.label
+
+
+f3 = aidb.Featureset.create_from_dataset_columns(dataset_id=d.id, column_names=['petal length (cm)', 'petal width (cm)'])
+f3.tags
+f3.supervision
+f3.label
+
+
+f4 = aidb.Featureset.create_all_columns(dataset_id=d.id)
+f4.tags
+f4.supervision
+f4.label
 

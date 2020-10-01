@@ -80,7 +80,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Supervisedset, Unsupervisedset])
+		db.create_tables([Job, Dataset, Label, Featureset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -246,17 +246,13 @@ class Dataset(BaseModel):
 	"""
 
 	"""
-	ToDo
-	- read featureset... fetch columns
-	- check that columns are actually named.
+	def create_dataset_from_pandas():
+		read as arrow
+		save as parquet from some kind of buffer?
 
-	#def create_dataset_from_pandas():
-		#read as arrow
-		#save as parquet from some kind of buffer?
-
-	#def create_dataset_from_numpy():
-		#read as arrow
-		#save as parquet from some kind of buffer?
+	def create_dataset_from_numpy():
+		read as arrow
+		save as parquet from some kind of buffer?
 	"""
 
 class Label(BaseModel):
@@ -286,134 +282,92 @@ class Label(BaseModel):
 
 class Featureset(BaseModel):
 	"""
-	- Unsupervised featuresets do not have a label ForeignKey, whereas Supervised featuresets do, which results in NULL ForeignKey errors.
-	^ As a workaround, I originally got `DeferredForeignKey('Label',null=True)` with `tags=[supervised,unsupervised]` working.
-	^ However, `.label` only returned an integer not object, `backref` didn't work, and subclass models are so simple.
+	- Remember, a Featureset is just a record of the column_names being used.
+	- Decided not to go w subclasses of Unsupervised and Supervised because that would complicate the SDK for the user,
+	  and it essentially made every downstream model forked into subclasses.
+	- http://docs.peewee-orm.com/en/latest/peewee/api.html?highlight=deferredforeign#DeferredForeignKey
+	- PCA components vary across featuresets. When different columns are used those columns have different component values.
 	"""
+	supervision = CharField() #supervised, unsupervised
 	column_names = JSONField()
 	tags = JSONField()
-	
 	dataset = ForeignKeyField(Dataset, backref='featuresets')
+	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='featuresets')
 
-
-class Supervisedset(Featureset):
-	# Inherits attributes from Featureset.
-	label = ForeignKeyField(Label, backref='features')
 
 	def create_from_dataset_columns(
 		dataset_id:int
 		,column_names:list
-		,label_id:int
+		,label_id:int=None # triggers `supervised`
 	):
 		d = Dataset.get_by_id(dataset_id)
-		
+
 		f_cols = column_names
 		d_cols = d.column_names
-		# Test that all Featureset columns exist in the Dataset and vice versa.
-		all_f_cols_found = all(i in d_cols for i in f_cols)
-		# The whole transaction is dirty if it isn't.
+		# Test that all Featureset columns exist in the Dataset, but not yet vice versa.
+		# The whole transaction is invalid if this is False.
+		all_f_cols_found = all(col in d_cols for col in f_cols)
 		if all_f_cols_found:
 			tags=[]
-			l = Label.get_by_id(label_id)
-			l_col = l.column_name
-			contains_label = l_col in f_cols
-			if contains_label:
-				raise ValueError("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
-			else:
-				# Prior to checking the reverse, remove the Label column.
-				d_cols.remove(l_col)
-				all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
-				d_cols.append(l_col)
-				if all_d_cols_found_but_label:
-					tags.append("all_dataset_features_except_label")
+			if label_id is not None:
+				l = Label.get_by_id(label_id)
+				l_col = l.column_name
+				contains_label = l_col in f_cols
+				if contains_label:
+					print("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
 				else:
-					tags.append("not_all_dataset_features")		
+					supervision = "supervised"
+					# Prior to checking the reverse, remove the Label column.
+					d_cols.remove(l_col)
+					all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
+					d_cols.append(l_col)
+					if all_d_cols_found_but_label:
+						tags.append("all_dataset_features")
+					else:
+						tags.append("not_all_dataset_features")
+			else:
+				l = None
+				supervision = "unsupervised"
+				all_d_cols_found = all(i in f_cols for i in d_cols)
+				if all_d_cols_found:
+					tags.append("all_dataset_columns")
+				else:
+					tags.append("not_all_dataset_columns")				
 
-			f = Supervisedset.create(
+			f = Featureset.create(
 				dataset=d
 				,label=l
 				,column_names=column_names
+				,supervision=supervision
 				,tags=tags
 			)
 			return f
 		else:
-			print("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(f_cols) + "\n")
-			return None
+			print("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(d_cols) + "\n")
 
-	def create_all_columns_except_label(
+
+	def create_all_columns(
 		dataset_id:int
-		,label_id:int
+		,label_id:int=None
 	):
 		d = Dataset.get_by_id(dataset_id)
-		l = Label.get_by_id(label_id)
-
-		label_col = l.column_name
 		dataset_cols = d.column_names
-		# This is overwrites the list, excluding the label.
-		dataset_cols.remove(label_col)
 
-		s = Supervisedset.create_from_dataset_columns(
+		if label_id is not None:
+			l = Label.get_by_id(label_id)
+			label_col = l.column_name
+			# Overwrites the original list.
+			dataset_cols.remove(label_col)
+
+		f = Featureset.create_from_dataset_columns(
 			dataset_id = dataset_id
 			,column_names = dataset_cols
 			,label_id = label_id
 		)
-		return s
-
-class Unsupervisedset(Featureset):
-	"""
-	- Inherits attributes from Featureset. 
-	- PCA components vary across featuresets. When different column combinations are used the same column will have different component values.
-	"""
-
-	def create_from_dataset_columns(
-		dataset_id:int
-		,column_names:list
-
-	):
-		d = Dataset.get_by_id(dataset_id)
-		
-		f_cols = column_names
-		d_cols = d.column_names
-		# Test that all Featureset columns exist in the Dataset and vice versa.
-		all_f_cols_found = all(i in d_cols for i in f_cols)
-		# The whole transaction is dirty if it isn't.
-		if all_f_cols_found:
-			tags=[]
-			
-			all_d_cols_found = all(i in f_cols for i in d_cols)
-			if all_d_cols_found:
-				tags.append("all_dataset_columns")
-			else:
-				tags.append("not_all_dataset_columns")		
-
-			u = Unsupervisedset.create(
-				dataset=d
-				,column_names=column_names
-				,tags=tags
-			)
-			return u
-		else:
-			print("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(f_cols) + "\n")
-			return None
-
-	def create_all_columns(
-		dataset_id:int
-	):
-		d = Dataset.get_by_id(dataset_id)
-
-		dataset_cols = d.column_names
-
-		u = Unsupervisedset.create_from_dataset_columns(
-			dataset_id = dataset_id
-			,column_names = dataset_cols
-		)
-		return u
+		return f
 
 
-#class Supersplitset(BaseModel):
-#class Unsupersplitset(BaseModel):
-
-class Splitset(BaseModel):
+class Foldset(BaseModel):
 	"""
 	- Belongs to a Featureset, not just a Dataset because the rows selected will vary based on the stratification of the columns selected during the sklearn split.
 	^ Can I relate this to a featureset?
@@ -421,7 +375,7 @@ class Splitset(BaseModel):
 	is_validation_set_used=BooleanField()
 	is_multiple_folds=BooleanField()
 	fold_count=IntegerField()
-	folds=JSONField()
+	folds_of_splits=JSONField()
 
 
 	"""
@@ -435,7 +389,3 @@ class Splitset(BaseModel):
 		test: {
 		}
 	"""
-
-
-
-
