@@ -20,7 +20,6 @@ _pre-alpha_
 * Feature engineering to select the most informative columns.
 * If you need to scale (data size, training time) just switch to `cloud_queue=True`.
 
----pdspd
 
 # Installation:
 Requires Python 3+. You will only need to perform these steps the first time you use the package. 
