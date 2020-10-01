@@ -136,12 +136,12 @@ This won't duplicate your data. It simply records the `column_names` to be used 
 #### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
 ```python
-supervised_featureset_bruteforce = aidb.Featureset.create_all_columns(
+supervised_bruteforce = aidb.Featureset.create_all_columns(
 	dataset_id = 1
 	,label_id = 1
 )
 
-supervised_featureset_selective = aidb.Featureset.create_from_dataset_columns(
+supervised_selective = aidb.Featureset.create_from_dataset_columns(
 	dataset_id = 1
 	,label_id = 1
 	,column_names = ['petal_width', 'petal_length']
@@ -153,11 +153,11 @@ supervised_featureset_selective = aidb.Featureset.create_from_dataset_columns(
 Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
 ```python
-unsupervised_featureset_bruteforce = aidb.Featureset.create_all_columns(
+unsupervised_bruteforce = aidb.Featureset.create_all_columns(
 	dataset_id = 1
 )
 
-aidb.Featureset.create_from_dataset_columns(
+unsupervised_selective = aidb.Featureset.create_from_dataset_columns(
 	dataset_id = 1
 	,column_names = ['petal_width', 'petal_width', 'sepal_length']
 )
