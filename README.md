@@ -9,6 +9,8 @@ _pre-alpha_
 
 * **Integrated**<br />We don’t force your entire workflow into the confines of a GUI app or specific IDE because we integrate with your existing code.<br /><br />
 
+* **Reproducible**<br />No more black boxes. Every row and column of every fold in every hypertuning training session is accounted for.<br /><br />
+
 
 ### Functionality:
 * Calculates and saves model metrics in a local SQLite file.
@@ -18,7 +20,7 @@ _pre-alpha_
 * Feature engineering to select the most informative columns.
 * If you need to scale (data size, training time) just switch to `cloud_queue=True`.
 
----
+---pdspd
 
 # Installation:
 Requires Python 3+. You will only need to perform these steps the first time you use the package. 

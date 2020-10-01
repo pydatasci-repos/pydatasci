@@ -80,7 +80,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Supervisedset, Unsupervisedset])
+		db.create_tables([Job, Dataset, Label, Featureset, Supervisedset, Unsupervisedset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -126,7 +126,6 @@ class Dataset(BaseModel):
 	file_format = CharField()
 	is_compressed = BooleanField()
 	column_names= JSONField()
-	#compression = CharField()
 
 	def create_from_file(
 		path:str
@@ -409,3 +408,34 @@ class Unsupervisedset(Featureset):
 			,column_names = dataset_cols
 		)
 		return u
+
+
+#class Supersplitset(BaseModel):
+#class Unsupersplitset(BaseModel):
+
+class Splitset(BaseModel):
+	"""
+	- Belongs to a Featureset, not just a Dataset because the rows selected will vary based on the stratification of the columns selected during the sklearn split.
+	^ Can I relate this to a featureset?
+	"""
+	is_validation_set_used=BooleanField()
+	is_multiple_folds=BooleanField()
+	fold_count=IntegerField()
+	folds=JSONField()
+
+
+	"""
+	# this is whatt the folds JSON looks like:
+		0:{
+			train:{ 
+			row_indices: [],
+			label_distribution: {#:%}
+			percent_of_samples: %
+		validation:{,
+		test: {
+		}
+	"""
+
+
+
+
