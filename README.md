@@ -53,7 +53,7 @@ _Once inside the Python shell:_
 > * Linux - Alpine and Ubuntu: <br />`/root/.local/share/pydatasci`<br /><br />
 > * Windows: <br />`C:\Users\Username\AppData\Local\pydatasci`
 >
-> `create_db()` is equivalent to a migration in Django in that it creates the tables found in the Object Relational Model (ORM). We use the [`peewee`](http://docs.peewee-orm.com/en/latest/peewee/models.html) ORM as it is simpler than SQLAlchemy, has good documentation, and found the project to be actively maintained (saw same-day GitHub response to issues on a Saturday). With the addition of Dash-Plotly, this will make for a full-stack experience that also works directly in an IDE like Jupyter or VS Code.
+> `create_db()` is equivalent to a *migration* in Django or Rails in that it creates the tables found in the Object Relational Model (ORM). We use the [`peewee`](http://docs.peewee-orm.com/en/latest/peewee/models.html) ORM as it is simpler than SQLAlchemy, has good documentation, and found the project to be actively maintained (saw same-day GitHub response to issues on a Saturday). With the addition of Dash-Plotly, this will make for a full-stack experience that also works directly in an IDE like Jupyter or VS Code.
 
 
 ### Deleting & Recreating the Database:
