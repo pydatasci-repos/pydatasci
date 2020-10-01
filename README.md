@@ -48,7 +48,7 @@ _Once inside the Python shell:_
 >
 > If you run into trouble with the installation process on your OS, please submit a GitHub issue so that we can attempt to resolve, document, and release a fix as quickly as possible.
 >
-> _Installation Location Based on OS_<br />`appdir.user_data_dir('pydatasci')`:
+> _Installation Location Based on OS_<br />`import appdirs; appdirs.user_data_dir('pydatasci');`:
 > * Mac: <br />`/Users/Username/Library/Application Support/pydatasci`<br /><br />
 > * Linux - Alpine and Ubuntu: <br />`/root/.local/share/pydatasci`<br /><br />
 > * Windows: <br />`C:\Users\Username\AppData\Local\pydatasci`
@@ -162,6 +162,7 @@ unsupervised_selective = aidb.Featureset.create_from_dataset_columns(
 	,column_names = ['petal_width', 'petal_width', 'sepal_length']
 )
 ```
+
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
 

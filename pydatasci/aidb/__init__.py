@@ -290,7 +290,7 @@ class Featureset(BaseModel):
 	"""
 	supervision = CharField() #supervised, unsupervised
 	column_names = JSONField()
-	tags = JSONField()
+	contains_all_columns = BooleanField()
 	dataset = ForeignKeyField(Dataset, backref='featuresets')
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='featuresets')
 
@@ -298,7 +298,7 @@ class Featureset(BaseModel):
 	def create_from_dataset_columns(
 		dataset_id:int
 		,column_names:list
-		,label_id:int=None # triggers `supervised`
+		,label_id:int=None # triggers `supervision = unsupervised`
 	):
 		d = Dataset.get_by_id(dataset_id)
 
@@ -308,7 +308,6 @@ class Featureset(BaseModel):
 		# The whole transaction is invalid if this is False.
 		all_f_cols_found = all(col in d_cols for col in f_cols)
 		if all_f_cols_found:
-			tags=[]
 			if label_id is not None:
 				l = Label.get_by_id(label_id)
 				l_col = l.column_name
@@ -322,24 +321,24 @@ class Featureset(BaseModel):
 					all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
 					d_cols.append(l_col)
 					if all_d_cols_found_but_label:
-						tags.append("all_dataset_features")
+						contains_all_columns = True
 					else:
-						tags.append("not_all_dataset_features")
+						contains_all_columns = False
 			else:
 				l = None
 				supervision = "unsupervised"
 				all_d_cols_found = all(i in f_cols for i in d_cols)
 				if all_d_cols_found:
-					tags.append("all_dataset_columns")
+					contains_all_columns = True
 				else:
-					tags.append("not_all_dataset_columns")				
+					contains_all_columns = False			
 
 			f = Featureset.create(
 				dataset=d
 				,label=l
 				,column_names=column_names
 				,supervision=supervision
-				,tags=tags
+				,contains_all_columns=contains_all_columns
 			)
 			return f
 		else:
