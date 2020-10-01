@@ -18,7 +18,7 @@ _pre-alpha_
 * Queue for hypertuning jobs and batches.
 * Treats cross-validated splits (k-fold) and validation sets (3rd split) as first-level citizens.
 * Feature engineering to select the most informative columns.
-* If you need to scale (data size, training time) just switch to `cloud_queue=True`.
+* If you need to scale (data size, training time) just switch to `cloud_queue = True`.
 
 
 # Installation:
@@ -104,7 +104,7 @@ Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/
 df = dataset.read_to_pandas()
 df.head()
 
-df2 = aidb.Dataset.read_to_pandas(id=1)
+df2 = aidb.Dataset.read_to_pandas(id = 1)
 df2.head()
 ```
 
@@ -113,7 +113,7 @@ df2.head()
 arr = dataset.read_to_numpy()
 arr[:4]
 
-arr2 = aidb.Dataset.read_to_numpy(id=1)
+arr2 = aidb.Dataset.read_to_numpy(id = 1)
 arr2[:4]
 ```
 > We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
@@ -124,8 +124,8 @@ From a Dataset, pick a column that you want to train against/ predict. If you ar
 
 ```python
 label = aidb.Label.create_from_dataset(
-	dataset_id=1
-	,column_name='species'
+	dataset_id = 1
+	,column_name = 'species'
 )
 ```
 
