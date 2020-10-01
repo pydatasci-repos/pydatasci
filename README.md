@@ -133,7 +133,6 @@ label = aidb.Label.create_from_dataset(
 
 This won't duplicate your data. It simply records the `column_names` to be used in training.
 
-```python
 #### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
 ```python
