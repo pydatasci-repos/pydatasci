@@ -125,7 +125,8 @@ class Dataset(BaseModel):
 	category = CharField() #tabular, image, longitudinal
 	file_format = CharField()
 	is_compressed = BooleanField()
-	column_names= JSONField()
+	columns= JSONField()
+	#is_shuffled= BooleanField()#False
 
 	def create_from_file(
 		path:str
@@ -156,6 +157,8 @@ class Dataset(BaseModel):
 			if perform_gzip is None:
 				perform_gzip=True
 
+			#ToDo prevent ff combos like '.csv' with 'parquet' vice versa.
+
 			# File formats.
 			if file_format == 'csv':
 				parse_opt = pc.ParseOptions(delimiter=',')
@@ -166,13 +169,12 @@ class Dataset(BaseModel):
 			elif file_format == 'parquet':
 				tbl = pq.read_table(path)
 
-			# Category
+			# Future: handle other formats like image.
 			category = 'tabular'
 
 			#ToDo - handle columns with no name.
-			column_names = tbl.column_names
+			columns = tbl.column_names
 
-			# should doooo something with it first to normalize it.
 			with open(path, "rb") as f:
 				bytesio = io.BytesIO(f.read())
 				data = bytesio.getvalue()
@@ -187,24 +189,29 @@ class Dataset(BaseModel):
 				,data = data
 				,file_format = file_format
 				,is_compressed = is_compressed
-				,column_names = column_names
+				,columns = columns
 				,category = category
 			)
 			return d
 
 
-	def read_to_pandas(id:int):
+	def read_to_pandas(
+		id:int
+		,columns:list=None
+	):
 		"""
 		- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
+		- All methods return all columns by default if they receive None: 
+		  `pc.read_csv(read_options.column_names)`, `pa.read_table()`, `pd.read_csv(uscols)`, `pd.read_parquet(columns)`
 		"""
 		d = Dataset.get_by_id(id)
-
 		is_compressed = d.is_compressed
 		ff = d.file_format
 		
 		data = d.data
 		bytesio_data = io.BytesIO(data)
 		if (ff == 'csv') or (ff == 'tsv'):
+			# `pc.ReadOptions.column_names` verifies the existence of the names, does not filter for them.
 			if is_compressed:
 				bytesio_csv = gzip.open(bytesio_data)
 				if ff == 'tsv':
@@ -213,28 +220,38 @@ class Dataset(BaseModel):
 				else:
 					tbl = pc.read_csv(bytesio_csv)
 				df = tbl.to_pandas()
+				if columns is not None:
+					df = df.filter(columns)
 			else:
 				if ff == 'tsv':
-					df = pd.read_csv(bytesio_data, sep='\t')
+					df = pd.read_csv(
+						bytesio_data
+						,sep='\t'
+						,usecols=columns)
 				else:
-					df = pd.read_csv(bytesio_data)
+					df = pd.read_csv(bytesio_data, usecols=columns)
 		elif ff == 'parquet':
 			if is_compressed:
 				bytesio_parquet = gzip.open(bytesio_data)
-				tbl = pq.read_table(bytesio_parquet)
+				tbl = pq.read_table(bytesio_parquet, columns=columns)
 				df = tbl.to_pandas()
 			else:
-				df = pd.read_parquet(bytesio_data)
+				df = pd.read_parquet(
+					bytesio_data
+					,columns=columns)
 		return df
 
 
-	def read_to_numpy(id:int):
+	def read_to_numpy(
+		id:int
+		,columns:list=None
+	):
 		"""
 		- Returns a NumPy structured array: https://numpy.org/doc/stable/user/basics.rec.html
 		- Started implementing `np.genfromtxt(bytesio_data, names=True, delimiter=',')`, but just switched to Pandas.
 		- There doesn't seem to be a direct Parquet to NumPy, so have to convert through PyArrow or Pandas.
 		"""
-		df = Dataset.read_to_pandas(id)
+		df = Dataset.read_to_pandas(id, columns=columns)
 		arr = df.to_records(index=False)
 		return arr
 
@@ -267,7 +284,7 @@ class Label(BaseModel):
 		d = Dataset.get_by_id(dataset_id)
 
 		# verify that the column exists
-		d_columns = d.column_names
+		d_columns = d.columns
 		column_found = column_name in d_columns
 		if column_found:
 			l = Label.create(
@@ -276,20 +293,21 @@ class Label(BaseModel):
 			)
 			return l
 		else:
-			print("Error - Column name not found in `Dataset.column_names`.")
+			print("Error - Column name not found in `Dataset.columns`.")
 			return None
 
 
 class Featureset(BaseModel):
 	"""
-	- Remember, a Featureset is just a record of the column_names being used.
+	- Remember, a Featureset is just a record of the columns being used.
 	- Decided not to go w subclasses of Unsupervised and Supervised because that would complicate the SDK for the user,
 	  and it essentially made every downstream model forked into subclasses.
-	- http://docs.peewee-orm.com/en/latest/peewee/api.html?highlight=deferredforeign#DeferredForeignKey
+	- So the ForeignKey on label is optional:
+	  http://docs.peewee-orm.com/en/latest/peewee/api.html?highlight=deferredforeign#DeferredForeignKey
 	- PCA components vary across featuresets. When different columns are used those columns have different component values.
 	"""
 	supervision = CharField() #supervised, unsupervised
-	column_names = JSONField()
+	columns = JSONField()
 	contains_all_columns = BooleanField()
 	dataset = ForeignKeyField(Dataset, backref='featuresets')
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='featuresets')
@@ -297,13 +315,13 @@ class Featureset(BaseModel):
 
 	def create_from_dataset_columns(
 		dataset_id:int
-		,column_names:list
+		,columns:list
 		,label_id:int=None # triggers `supervision = unsupervised`
 	):
 		d = Dataset.get_by_id(dataset_id)
 
-		f_cols = column_names
-		d_cols = d.column_names
+		f_cols = columns
+		d_cols = d.columns
 		# Test that all Featureset columns exist in the Dataset, but not yet vice versa.
 		# The whole transaction is invalid if this is False.
 		all_f_cols_found = all(col in d_cols for col in f_cols)
@@ -336,13 +354,13 @@ class Featureset(BaseModel):
 			f = Featureset.create(
 				dataset=d
 				,label=l
-				,column_names=column_names
+				,columns=columns
 				,supervision=supervision
 				,contains_all_columns=contains_all_columns
 			)
 			return f
 		else:
-			print("\nError - Could not find all of the provided column names in `Dataset.column_names`.\n" + " ".join(d_cols) + "\n")
+			print("\nError - Could not find all of the provided column names in `Dataset.columns`.\n" + " ".join(d_cols) + "\n")
 
 
 	def create_all_columns(
@@ -350,7 +368,7 @@ class Featureset(BaseModel):
 		,label_id:int=None
 	):
 		d = Dataset.get_by_id(dataset_id)
-		dataset_cols = d.column_names
+		dataset_cols = d.columns
 
 		if label_id is not None:
 			l = Label.get_by_id(label_id)
@@ -360,7 +378,7 @@ class Featureset(BaseModel):
 
 		f = Featureset.create_from_dataset_columns(
 			dataset_id = dataset_id
-			,column_names = dataset_cols
+			,columns = dataset_cols
 			,label_id = label_id
 		)
 		return f
@@ -368,14 +386,17 @@ class Featureset(BaseModel):
 
 class Foldset(BaseModel):
 	"""
-	- Belongs to a Featureset, not just a Dataset because the rows selected will vary based on the stratification of the columns selected during the sklearn split.
-	^ Can I relate this to a featureset?
+	- Belongs to a Featureset, not a Dataset, because the rows selected vary based on the stratification of the features during the split,
+	  and a Featureset already has a Dataset anyways.
+	  https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedKFold.html
 	"""
 	is_validation_set_used=BooleanField()
 	is_multiple_folds=BooleanField()
-	fold_count=IntegerField()
-	folds_of_splits=JSONField()
+	fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
+	folds=JSONField()
 
+	featureset = ForeignKeyField(Featureset, backref='foldset')
+	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='foldsets')
 
 	"""
 	# this is whatt the folds JSON looks like:
@@ -388,3 +409,8 @@ class Foldset(BaseModel):
 		test: {
 		}
 	"""
+
+	#def split():
+
+#class Job(BaseModel):
+	#this will also have the deferrable key to label. 

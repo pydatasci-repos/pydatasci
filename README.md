@@ -131,7 +131,7 @@ label = aidb.Label.create_from_dataset(
 
 ## 3. Derive a `Featureset` of columns from a Dataset.
 
-This won't duplicate your data. It simply records the `column_names` to be used in training.
+This won't duplicate your data. It simply records the `columns` to be used in training.
 
 #### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
@@ -144,7 +144,7 @@ supervised_bruteforce = aidb.Featureset.create_all_columns(
 supervised_selective = aidb.Featureset.create_from_dataset_columns(
 	dataset_id = 1
 	,label_id = 1
-	,column_names = ['petal_width', 'petal_length']
+	,columns = ['petal_width', 'petal_length']
 )
 ```
 
@@ -159,7 +159,7 @@ unsupervised_bruteforce = aidb.Featureset.create_all_columns(
 
 unsupervised_selective = aidb.Featureset.create_from_dataset_columns(
 	dataset_id = 1
-	,column_names = ['petal_width', 'petal_width', 'sepal_length']
+	,columns = ['petal_width', 'petal_width', 'sepal_length']
 )
 ```
 
