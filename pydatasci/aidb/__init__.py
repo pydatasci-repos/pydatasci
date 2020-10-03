@@ -209,6 +209,13 @@ class Dataset(BaseModel):
 		is_compressed = d.is_compressed
 		ff = d.file_format
 		
+		# This is for when you want to provide only the label column and foret to [] it.
+		if type(columns) == str:
+			try: 
+				columns == [columns]
+			except:
+				print("\nError - `columns` argument received object type `str` but it takes `list`. Failed to convert to list.")
+
 		data = d.data
 		bytesio_data = io.BytesIO(data)
 		if (ff == 'csv') or (ff == 'tsv'):
@@ -424,24 +431,28 @@ class Foldset(BaseModel):
 		f_cols = f.columns
 
 		d_id = f.dataset.id
-		df_f = Dataset.read_to_numpy(id=d_id, columns=f_cols)
+		arr_f = Dataset.read_to_numpy(id=d_id, columns=f_cols)
 
 		l = f.label
 		if l is not None:
 			l_col = l.column 
-			df_l = Dataset.read_to_numpy(id=d_id, columns=l_col)
-			# <------- it doesnt like when the y is a df
-			# nested arrays don't have a shape -_-
+			arr_l = Dataset.read_to_numpy(id=d_id, columns=[l_col])
 
 		size_test=0.30
+		# Simulate an index.
+		row_count = arr_l.shape[0]
+		arr_idx = np.arange(row_count)
 
-		features_train, features_test, labels_train, labels_test = train_test_split(
-    		df_f, 
-    		df_l,
-    		test_size=0.30
-    	)
+		# https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
+		# Cannot `shuffle` if `stratify` is not None, but it looks shuffled to me.
+		features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
+			arr_f, arr_l, arr_idx
+			,test_size=size_test
+			,stratify = arr_l
+		)
 
-		return features_train, features_test, labels_train, labels_test
+		# I want to get the row indexe
+		return features_train, features_test, labels_train, labels_test, indices_train, indices_test
 
 	#def create_splits_from_featureset():
 

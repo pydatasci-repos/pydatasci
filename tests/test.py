@@ -8,17 +8,15 @@ d = aidb.Dataset.create_from_file('iris.csv','csv')
 l = aidb.Label.create_from_dataset(1,'target')
 
 
-f2 = aidb.Featureset.create_all_columns(dataset_id=d.id, label_id=l.id)
-f2.tags
-f2.supervision
-f2.label
+f = aidb.Featureset.create_all_columns(dataset_id=d.id, label_id=l.id)
+f.tags
+f.supervision
+f.label
 
 
 
 
-features_train, features_test, labels_train, labels_test = aidb.Foldset.create_from_featureset(f2.id)
-
-
+features_train, features_test, labels_train, labels_test, indices_train, indices_test = aidb.Foldset.create_from_featureset(f.id)
 
 
 
