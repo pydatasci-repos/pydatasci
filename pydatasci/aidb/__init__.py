@@ -13,6 +13,7 @@ from pyarrow import parquet as pq
 from pyarrow import csv as pc
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -80,7 +81,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset])
+		db.create_tables([Job, Dataset, Label, Featureset, Foldset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -252,7 +253,8 @@ class Dataset(BaseModel):
 		- There doesn't seem to be a direct Parquet to NumPy, so have to convert through PyArrow or Pandas.
 		"""
 		df = Dataset.read_to_pandas(id, columns=columns)
-		arr = df.to_records(index=False)
+		#arr = df.to_records(index=False)
+		arr = df.to_numpy()
 		return arr
 
 	"""
@@ -273,23 +275,23 @@ class Dataset(BaseModel):
 	"""
 
 class Label(BaseModel):
-	column_name=CharField()
+	column=CharField()
 	
 	dataset = ForeignKeyField(Dataset, backref='labels')
 	
 	def create_from_dataset(
 		dataset_id:int
-		,column_name:str
+		,column:str
 	):
 		d = Dataset.get_by_id(dataset_id)
 
 		# verify that the column exists
 		d_columns = d.columns
-		column_found = column_name in d_columns
+		column_found = column in d_columns
 		if column_found:
 			l = Label.create(
 				dataset=d
-				,column_name=column_name
+				,column=column
 			)
 			return l
 		else:
@@ -328,7 +330,7 @@ class Featureset(BaseModel):
 		if all_f_cols_found:
 			if label_id is not None:
 				l = Label.get_by_id(label_id)
-				l_col = l.column_name
+				l_col = l.column
 				contains_label = l_col in f_cols
 				if contains_label:
 					print("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
@@ -372,7 +374,7 @@ class Featureset(BaseModel):
 
 		if label_id is not None:
 			l = Label.get_by_id(label_id)
-			label_col = l.column_name
+			label_col = l.column
 			# Overwrites the original list.
 			dataset_cols.remove(label_col)
 
@@ -390,13 +392,14 @@ class Foldset(BaseModel):
 	  and a Featureset already has a Dataset anyways.
 	  https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedKFold.html
 	"""
-	is_validation_set_used=BooleanField()
-	is_multiple_folds=BooleanField()
-	fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
-	folds=JSONField()
+	#is_validation_set_used=BooleanField()
+	#is_multiple_folds=BooleanField()
+	#fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
+	#folds_and_splits=JSONField()
 
 	featureset = ForeignKeyField(Featureset, backref='foldset')
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='foldsets')
+
 
 	"""
 	# this is whatt the folds JSON looks like:
@@ -404,13 +407,44 @@ class Foldset(BaseModel):
 			train:{ 
 			row_indices: [],
 			label_distribution: {#:%}
-			percent_of_samples: %
+			size_samples_specified: 0.0
+			size_samples_actual: 0.0
 		validation:{,
 		test: {
 		}
 	"""
+	
+	def create_from_featureset(
+		featureset_id:int
+		#size_train
+		#size_test
+		#size_validation
+	):
+		f = Featureset.get_by_id(featureset_id)
+		f_cols = f.columns
 
-	#def split():
+		d_id = f.dataset.id
+		df_f = Dataset.read_to_numpy(id=d_id, columns=f_cols)
+
+		l = f.label
+		if l is not None:
+			l_col = l.column 
+			df_l = Dataset.read_to_numpy(id=d_id, columns=l_col)
+			# <------- it doesnt like when the y is a df
+			# nested arrays don't have a shape -_-
+
+		size_test=0.30
+
+		features_train, features_test, labels_train, labels_test = train_test_split(
+    		df_f, 
+    		df_l,
+    		test_size=0.30
+    	)
+
+		return features_train, features_test, labels_train, labels_test
+
+	#def create_splits_from_featureset():
+
 
 #class Job(BaseModel):
 	#this will also have the deferrable key to label. 

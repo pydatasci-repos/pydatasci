@@ -8,14 +8,6 @@ d = aidb.Dataset.create_from_file('iris.csv','csv')
 l = aidb.Label.create_from_dataset(1,'target')
 
 
-
-f1 = aidb.Featureset.create_from_dataset_columns(dataset_id=d.id, label_id=l.id, column_names=['petal width (cm)'])
-f1.tags
-f1.supervision
-f1.label
-
-
-
 f2 = aidb.Featureset.create_all_columns(dataset_id=d.id, label_id=l.id)
 f2.tags
 f2.supervision
@@ -23,7 +15,24 @@ f2.label
 
 
 
-f3 = aidb.Featureset.create_from_dataset_columns(dataset_id=d.id, column_names=['petal length (cm)', 'petal width (cm)'])
+
+features_train, features_test, labels_train, labels_test = aidb.Foldset.create_from_featureset(f2.id)
+
+
+
+
+
+
+
+f1 = aidb.Featureset.create_from_dataset_columns(dataset_id=d.id, label_id=l.id, columns=['petal width (cm)'])
+f1.tags
+f1.supervision
+f1.label
+
+
+
+
+f3 = aidb.Featureset.create_from_dataset_columns(dataset_id=d.id, columns=['petal length (cm)', 'petal width (cm)'])
 f3.tags
 f3.supervision
 f3.label

@@ -72,9 +72,9 @@ df4.head()
 df5.head()
 df6.head()
 
-df13.head()
-df14.head()
-df15.head()
-df16.head()
-df17.head()
-df18.head()
+df13[:4]
+df14[:4]
+df15[:4]
+df16[:4]
+df17[:4]
+df18[:4]
