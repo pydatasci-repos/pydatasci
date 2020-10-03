@@ -209,12 +209,9 @@ class Dataset(BaseModel):
 		is_compressed = d.is_compressed
 		ff = d.file_format
 		
-		# This is for when you want to provide only the label column and foret to [] it.
+		# When user provides only 1 column and forgets to [] it (e.g. the label column).
 		if type(columns) == str:
-			try: 
-				columns == [columns]
-			except:
-				print("\nError - `columns` argument received object type `str` but it takes `list`. Failed to convert to list.")
+				columns = [columns]
 
 		data = d.data
 		bytesio_data = io.BytesIO(data)
@@ -451,10 +448,7 @@ class Foldset(BaseModel):
 			,stratify = arr_l
 		)
 
-		# I want to get the row indexe
 		return features_train, features_test, labels_train, labels_test, indices_train, indices_test
-
-	#def create_splits_from_featureset():
 
 
 #class Job(BaseModel):
