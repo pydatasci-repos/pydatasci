@@ -399,7 +399,7 @@ class Splitset(BaseModel):
 	"""
 	rows = JSONField()
 	sizes = JSONField()
-	#is_validated=BooleanField()
+	is_validated=BooleanField()
 	#is_folded=BooleanField()
 	#fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
 
@@ -411,21 +411,22 @@ class Splitset(BaseModel):
 		featureset_id:int
 		,size_test:float=None
 		,size_validation:float=None
+		,fold_count:int=1
 	):
 
 		if size_test is not None:
 			if (size_test <= 0.0) or (size_test >= 1.0):
-				ValueError("\n`size_test` must be between 0.0 and 1.0\n")
+				raise ValueError("\n`size_test` must be between 0.0 and 1.0\n")
 		else:
 			# aka this is user-defined.
 			size_test = 0.25
 		
 		if size_validation is not None:
 			if (size_validation <= 0.0) or (size_validation >= 1.0):
-				ValueError("\n`size_test` must be between 0.0 and 1.0\n")
+				raise ValueError("\n`size_test` must be between 0.0 and 1.0\n")
 			sum_test_val = size_validation + size_test
 			if sum_test_val >= 1.0:
-				ValueError("\nSum of `size_test` and `size_test` must be between 0.0 and 1.0 to leave room for training set.\n")
+				raise ValueError("\nSum of `size_test` and `size_test` must be between 0.0 and 1.0 to leave room for training set.\n")
 			"""
 			Have to run train_test_split twice do the math to figure out the size of 2nd split.
 			Let's say I want {train:0.67, validation:0.13, test:0.20}
@@ -433,9 +434,9 @@ class Splitset(BaseModel):
 			(1.0/(1.0-0.20))*0.13 = 0.1625
 			"""
 			pct_for_2nd_split = (1.0/(1.0-size_test))*size_validation
+			is_validated = True
 		else:
-			# aka this is user-defined.
-			pass
+			is_validated = False
 
 		f = Featureset.get_by_id(featureset_id)
 		f_cols = f.columns
@@ -483,16 +484,22 @@ class Splitset(BaseModel):
 		sizes = {}
 		size_train = 1.0 - size_test
 		if size_validation is not None:
-			size_train - size_validation
+			size_train -= size_validation
 			sizes["validation"] = size_validation
 		sizes["test"] = size_test
 		sizes["train"] = size_train
+
+		if fold_count < 2:
+			is_folded = False
 
 		s = Splitset.create(
 			featureset = f
 			,label = l
 			,rows = rows
 			,sizes = sizes
+			,is_validated = is_validated
+			,is_folded = is_folded
+			,fold_count = fold_count
 		)
 		return s
 
