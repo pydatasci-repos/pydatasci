@@ -6,7 +6,7 @@
 PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
 
 # Mission
-* **Reproducible**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, split, fold, parameter, run, model, and result - is persisted in a lightweight fashion. So hypertune to your heart's content and then pick the best model.<br /><br />
+* **Reproducible**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, split, fold, parameter, run, model, and result - is persisted in a lightweight fashion. So hypertune to your heart's content, compare models, and pick the best one with the proof to back it up.<br /><br />
 
 * **Local-first**<br />Empower non-cloud users (academic/ institute HPCs, private cloud companies, remote server SSH'ers, and everyday desktop hackers) with the same quality ML services as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
@@ -17,8 +17,6 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 # Painpoint Solved
 In writing a paper about meta-analysis of deep learning activation values that compared graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with multiple parameters. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare to other models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, or too proprietary/ close-walled. 
 
-Because this project would touch so many other pieces of the data science ecosystem, I thought it would make sense to start an open source movement around this. 
-
 # Functionality:
 * Compresses a dataset (csv, tsv, parquet) to keep track of.
 * Derives informative featuresets and/ or labels from that dataset.
@@ -27,6 +25,11 @@ Because this project would touch so many other pieces of the data science ecosys
 * Calculates and saves performance model metrics of each model.
 * Visually compares models to find the best one.
 * Scales out to run cloud jobs (data size, training time) by toggling `cloud_queue = True`.
+
+# Community:
+Much to automate there is. Simple it must be. ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
+* **Data types:** tabular, longitudinal, image, audio, video, graph, gaming.
+* **Analysis types:** classification, regression, dimensionality redeuction, recurrent, generative, reinforcement, NLP.
 
 ---
 
