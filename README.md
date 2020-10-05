@@ -15,7 +15,7 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 * **Scalable**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud.<br /><br />
 
 # Painpoint Solved
-In writing a paper about meta-analysis of deep learning activation values that compared graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, incomplete (bring your own database), or too proprietary/ close-walled. Let's be honest, the avaergae data scientist isn't the world's best software engineer/ architect, so they need an low-code fix for keeping track of everything.
+In writing a paper about comparative methods for the interpretation of deep learning activation values via graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. I had done the hard part in figuring out the science, but this permuted world was just a mess. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, incomplete (bring your own database), or too proprietary/ close-walled. Let's be honest, the avaergae data scientist isn't the world's best software engineer/ architect, so they need an low-code fix for keeping track of everything.
 
 # Functionality:
 - Compresses a dataset (csv, tsv, parquet) to keep track of.
@@ -28,8 +28,9 @@ In writing a paper about meta-analysis of deep learning activation values that c
 
 # Community:
 *Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
-* **Data types:** tabular, longitudinal, image, audio, video, graph, gaming.
-* **Analysis types:** classification, regression, dimensionality redeuction, recurrent, generative, reinforcement, NLP.
+
+* **Data types:** tabular, longitudinal, image, graph, audio, video, gaming.
+* **Analysis types:** classification, regression, dimensionality reduction, feature engineering, recurrent, generative, reinforcement, NLP.
 
 ---
 
