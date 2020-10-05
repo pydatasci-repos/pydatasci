@@ -81,7 +81,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Foldset])
+		db.create_tables([Job, Dataset, Label, Featureset, Splitset])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -390,66 +390,114 @@ class Featureset(BaseModel):
 		return f
 
 
-class Foldset(BaseModel):
+class Splitset(BaseModel):
 	"""
 	- Belongs to a Featureset, not a Dataset, because the rows selected vary based on the stratification of the features during the split,
 	  and a Featureset already has a Dataset anyways.
 	  https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedKFold.html
+	- Can this also be supervised and unsupervised?
 	"""
-	#is_validation_set_used=BooleanField()
-	#is_multiple_folds=BooleanField()
+	rows = JSONField()
+	sizes = JSONField()
+	#is_validated=BooleanField()
+	#is_folded=BooleanField()
 	#fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
-	#folds_and_splits=JSONField()
 
-	featureset = ForeignKeyField(Featureset, backref='foldset')
-	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='foldsets')
-
-
-	"""
-	# this is whatt the folds JSON looks like:
-		0:{
-			train:{ 
-			row_indices: [],
-			label_distribution: {#:%}
-			size_samples_specified: 0.0
-			size_samples_actual: 0.0
-		validation:{,
-		test: {
-		}
-	"""
+	featureset = ForeignKeyField(Featureset, backref='splitsets')
+	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='splitsets')
 	
+
 	def create_from_featureset(
 		featureset_id:int
-		#size_train
-		#size_test
-		#size_validation
+		,size_test:float=None
+		,size_validation:float=None
 	):
+
+		if size_test is not None:
+			if (size_test <= 0.0) or (size_test >= 1.0):
+				ValueError("\n`size_test` must be between 0.0 and 1.0\n")
+		else:
+			# aka this is user-defined.
+			size_test = 0.25
+		
+		if size_validation is not None:
+			if (size_validation <= 0.0) or (size_validation >= 1.0):
+				ValueError("\n`size_test` must be between 0.0 and 1.0\n")
+			sum_test_val = size_validation + size_test
+			if sum_test_val >= 1.0:
+				ValueError("\nSum of `size_test` and `size_test` must be between 0.0 and 1.0 to leave room for training set.\n")
+			"""
+			Have to run train_test_split twice do the math to figure out the size of 2nd split.
+			Let's say I want {train:0.67, validation:0.13, test:0.20}
+			The first test_size is 20% which leaves 80% of the original data to be split into validation and training data.
+			(1.0/(1.0-0.20))*0.13 = 0.1625
+			"""
+			pct_for_2nd_split = (1.0/(1.0-size_test))*size_validation
+		else:
+			# aka this is user-defined.
+			pass
+
 		f = Featureset.get_by_id(featureset_id)
 		f_cols = f.columns
 
+		# Feature data.
 		d_id = f.dataset.id
 		arr_f = Dataset.read_to_numpy(id=d_id, columns=f_cols)
 
+		# Label data.
 		l = f.label
 		if l is not None:
+			l_id = l.id
 			l_col = l.column 
 			arr_l = Dataset.read_to_numpy(id=d_id, columns=[l_col])
 
-		size_test=0.30
-		# Simulate an index.
+		"""
+		Simulate an index to be split alongside features and labels
+		in order to keep track of the rows being used in the resulting splits.
+		"""
 		row_count = arr_l.shape[0]
 		arr_idx = np.arange(row_count)
 
-		# https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
-		# Cannot `shuffle` if `stratify` is not None, but it looks shuffled to me.
+		# `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 		features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
 			arr_f, arr_l, arr_idx
-			,test_size=size_test
+			,test_size = size_test
 			,stratify = arr_l
 		)
+		
+		rows = {}
 
-		return features_train, features_test, labels_train, labels_test, indices_train, indices_test
+		if size_validation is not None:
+			features_train, features_validation, labels_train, labels_validation, indices_train, indices_validation = train_test_split(
+				features_train, labels_train, indices_train
+				,test_size = pct_for_2nd_split
+				,stratify = labels_train
+			)
+			indices_lst_validation = indices_validation.tolist()
+			rows["validation"] = indices_lst_validation
 
+		indices_lst_train, indices_lst_test  = indices_train.tolist(), indices_test.tolist()
+		rows["train"] = indices_lst_train
+		rows["test"] = indices_lst_test
+
+		sizes = {}
+		size_train = 1.0 - size_test
+		if size_validation is not None:
+			size_train - size_validation
+			sizes["validation"] = size_validation
+		sizes["test"] = size_test
+		sizes["train"] = size_train
+
+		s = Splitset.create(
+			featureset = f
+			,label = l
+			,rows = rows
+			,sizes = sizes
+		)
+		return s
 
 #class Job(BaseModel):
 	#this will also have the deferrable key to label. 
+
+
+
