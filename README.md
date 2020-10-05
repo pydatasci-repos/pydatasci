@@ -2,6 +2,8 @@ _pre-alpha_
 
 ---
 
+![PyDataSci (wide)](logo_pds_wide.png)
+
 # Mission
 * **Automated**<br />_AIdb_ is an autoML tool that keeps track of the moving parts of machine learning (model tuning, feature selection, dataset splitting, and cross validation) so that data scientists can perform best practice ML without the coding overhead.<br /><br />
 
