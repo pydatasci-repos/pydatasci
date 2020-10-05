@@ -18,16 +18,16 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 In writing a paper about meta-analysis of deep learning activation values that compared graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with multiple parameters. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare to other models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, or too proprietary/ close-walled. 
 
 # Functionality:
-* Compresses a dataset (csv, tsv, parquet) to keep track of.
-* Derives informative featuresets and/ or labels from that dataset.
-** Treats validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
-* Queues hypertuning jobs and batches.
-* Calculates and saves performance model metrics of each model.
-* Visually compares models to find the best one.
-* Scales out to run cloud jobs (data size, training time) by toggling `cloud_queue = True`.
+- Compresses a dataset (csv, tsv, parquet) to keep track of.
+- Derives informative featuresets and/ or labels from that dataset.
+-- Treats validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
+- Queues hypertuning jobs and batches.
+- Calculates and saves performance model metrics of each model.
+- Visually compares models to find the best one.
+- Scales out to run cloud jobs (data size, training time) by toggling `cloud_queue = True`.
 
 # Community:
-Much to automate there is. Simple it must be. ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
+*Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
 * **Data types:** tabular, longitudinal, image, audio, video, graph, gaming.
 * **Analysis types:** classification, regression, dimensionality redeuction, recurrent, generative, reinforcement, NLP.
 
