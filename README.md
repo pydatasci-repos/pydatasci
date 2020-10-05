@@ -1,5 +1,4 @@
 ![PyDataSci (wide)](logo_pds_wide.png)
-_pre-alpha_
 
 ---
 
