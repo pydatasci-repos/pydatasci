@@ -2,24 +2,33 @@
 
 ---
 
+# Value Proposition
+PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
+
 # Mission
-* **Automated**<br />_AIdb_ is an autoML tool that keeps track of the moving parts of machine learning (model tuning, feature selection, dataset splitting, and cross validation) so that data scientists can perform best practice ML without the coding overhead.<br /><br />
+* **Reproducible**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, split, fold, parameter, run, model, and result - is persisted in a lightweight fashion. So hypertune to your heart's content and then pick the best model.<br /><br />
 
-* **Local-first**<br />We empower non-cloud users (academic/ institute HPCs, private cloud companies, desktop hackers, or even remote server SSH'ers) with the same quality ML services as present in public clouds (e.g. SageMaker).<br /><br />
+* **Local-first**<br />Empower non-cloud users (academic/ institute HPCs, private cloud companies, remote server SSH'ers, and everyday desktop hackers) with the same quality ML services as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
-* **Integrated**<br />We don’t force your entire workflow into the confines of a GUI app or specific IDE because we integrate with your existing code.<br /><br />
+* **Integrated**<br />Don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Weave automated tracking into their existing code to work alongside other data science tools.<br /><br />
 
-* **Reproducible**<br />No more black boxes. Every row and column of every fold in every hypertuning training session is accounted for.<br /><br />
+* **Scalable**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud.<br /><br />
 
+# Painpoint Solved
+In writing a paper about meta-analysis of deep learning activation values that compared graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with multiple parameters. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare to other models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, or too proprietary/ close-walled. 
 
-### Functionality:
-* Calculates and saves model metrics in a local SQLite file.
-* Visually compare model metrics to find the best model.
-* Queue for hypertuning jobs and batches.
-* Treats cross-validated splits (k-fold) and validation sets (3rd split) as first-level citizens.
-* Feature engineering to select the most informative columns.
-* If you need to scale (data size, training time) just switch to `cloud_queue = True`.
+Because this project would touch so many other pieces of the data science ecosystem, I thought it would make sense to start an open source movement around this. 
 
+# Functionality:
+* Compresses a dataset (csv, tsv, parquet) to keep track of.
+* Derives informative featuresets and/ or labels from that dataset.
+** Treats validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
+* Queues hypertuning jobs and batches.
+* Calculates and saves performance model metrics of each model.
+* Visually compares models to find the best one.
+* Scales out to run cloud jobs (data size, training time) by toggling `cloud_queue = True`.
+
+---
 
 # Installation:
 Requires Python 3+. You will only need to perform these steps the first time you use the package. 
