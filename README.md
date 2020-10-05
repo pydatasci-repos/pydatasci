@@ -17,7 +17,7 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 # Painpoint Solved
 In writing a paper about comparative methods for the interpretation of deep learning activation values via graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. I had done the hard part in figuring out the science, but this permuted world was just a mess. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, incomplete (bring your own database), or too proprietary/ close-walled. Let's be honest, the avaergae data scientist isn't the world's best software engineer/ architect, so they need an low-code fix for keeping track of everything.
 
-# Functionality:
+# Functionality
 - Compresses a dataset (csv, tsv, parquet) to keep track of.
 - Derives informative featuresets and/ or labels from that dataset.
 -- Treats validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
@@ -26,7 +26,7 @@ In writing a paper about comparative methods for the interpretation of deep lear
 - Visually compares models to find the best one.
 - Scales out to run cloud jobs (data size, training time) by toggling `cloud_queue = True`.
 
-# Community:
+# Community
 *Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
 
 * **Data types:** tabular, longitudinal, image, graph, audio, video, gaming.
@@ -34,7 +34,7 @@ In writing a paper about comparative methods for the interpretation of deep lear
 
 ---
 
-# Installation:
+# Installation
 Requires Python 3+. You will only need to perform these steps the first time you use the package. 
 
 Enter the following commands one-by-one and follow any instructions returned by the command prompt to resolve errors should they arise.
@@ -69,7 +69,7 @@ _Once inside the Python shell:_
 > `create_db()` is equivalent to a *migration* in Django or Rails in that it creates the tables found in the Object Relational Model (ORM). We use the [`peewee`](http://docs.peewee-orm.com/en/latest/peewee/models.html) ORM as it is simpler than SQLAlchemy, has good documentation, and found the project to be actively maintained (saw same-day GitHub response to issues on a Saturday). With the addition of Dash-Plotly, this will make for a full-stack experience that also works directly in an IDE like Jupyter or VS Code.
 
 
-### Deleting & Recreating the Database:
+### Deleting & Recreating the Database
 When deleting the database, you need to either reload the `aidb` module or restart the Python shell before you can attempt to recreate the database.
 
 ```python
@@ -200,7 +200,7 @@ unsupervised_selective = aidb.Featureset.create_from_dataset_columns(
 
 # PyPI Package
 
-### Steps to Build & Upload:
+### Steps to Build & Upload
 
 ```bash
 $ pyenv activate pydatasci
