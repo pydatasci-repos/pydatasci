@@ -12,7 +12,7 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 
 * **Integrated**<br />Don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Weave automated tracking into their existing code to work alongside the existing ecosystem of data science tools.<br /><br />
 
-* **Scalable**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud.<br /><br />
+* **Scalable**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
 
 # Painpoint Solved
 In writing a paper about comparative methods for the interpretation of deep learning activation values via graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. I had done the hard part in figuring out the science, but this permuted world was just a mess. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, incomplete (bring your own database), or too proprietary/ close-walled. Let's be honest, the avaergae data scientist isn't the world's best software engineer/ architect, so they want a low-code fix for keeping track of everything.
