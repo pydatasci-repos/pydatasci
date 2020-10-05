@@ -190,6 +190,7 @@ unsupervised_selective = aidb.Featureset.create_from_dataset_columns(
 ### Steps to Build & Upload:
 
 ```bash
+$ pyenv activate pydatasci
 $ pip3 install --upgrade wheel twine
 $ python3 setup.py sdist bdist_wheel
 $ python3 -m twine upload --repository pypi dist/*
