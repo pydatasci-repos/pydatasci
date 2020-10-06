@@ -255,7 +255,7 @@ class Dataset(BaseModel):
 		,columns:list=None
 		,samples:list=None
 	):
-		df = Dataset.read_to_pandas(id, columns=columns, samples=samples)
+		df = Dataset.read_to_pandas(id=id, columns=columns, samples=samples)
 		arr = df.to_numpy()
 		return arr
 
@@ -303,16 +303,24 @@ class Label(BaseModel):
 			print("Error - Column name not found in `Dataset.columns`.")
 			return None
 
+
 	def read_to_pandas(id:int, samples:list=None):
 		l = Label.get_by_id(id)
 		l_col = l.column
 		dataset_id = l.dataset.id
+		
 		lf = Dataset.read_to_pandas(
 			id=dataset_id
 			,columns=l_col
 			,samples=samples
 		)
 		return lf
+
+
+	def read_to_numpy(id:int, samples:list=None):
+		lf = Label.read_to_pandas(id=id, samples=samples)
+		l_arr = lf.to_numpy
+		return l_arr
 
 
 
@@ -403,16 +411,24 @@ class Featureset(BaseModel):
 		)
 		return f
 
+
 	def read_to_pandas(id:int, samples:list=None):
 		f = Featureset.get_by_id(id)
 		f_cols = f.columns
 		dataset_id = f.dataset.id
+		
 		ff = Dataset.read_to_pandas(
-			id=dataset_id
-			,columns=f_cols
-			,samples=samples
+			id = dataset_id
+			,columns = f_cols
+			,samples = samples
 		)
 		return ff
+
+	def read_to_numpy(id:int, samples:list=None):
+		ff = Featureset.read_to_pandas(id=id, samples=samples)
+		f_arr = ff.to_numpy
+		return f_arr
+
 
 
 
@@ -531,32 +547,46 @@ class Splitset(BaseModel):
 
 
 	def read_to_pandas(id:int, splits:list=None):
+		s = Splitset.get_by_id(id)
+
 		if splits is not None:
 			if len(splits) == 0:
 				raise ValueError("Yikes - `splits:list` is an empty list.\nIt can be None, which defaults to all splits, but it can't not empty.")
-
-		s = Splitset.get_by_id(id)
-		
-		#ToDo... this should be using a featureset call.
-		#and label call. meaning they all need `samples:list=None`
-		f = s.featureset
-		f_cols = f.columns
-		l_col = f.label.column
-		dataset_id = f.dataset.id
-
-		if splits is None:
+		else:
 			splits = list(s.samples.keys())
 
+		f = s.featureset
+		f_id = f.id
+
 		split_frames = {}
-		for s in splits:
-			split_frames[s] = {"features":None, "label": None}
+		for split_name in splits:
+			split_frames[split_name] = {"features":None, "labels": None}
 
-			ff = Dataset.read_to_pandas(id=dataset_id, columns=f_cols)
-			split_frames[s]["features"] = ff
+			samples = s.samples[split_name]
 
-			#ToDo... if supervised
-			lf = Dataset.read_to_pandas(id=dataset_id, columns=l_col)
-			split_frames[s]["labels"] = lf
+			ff = Featureset.read_to_pandas(id=f_id, samples=samples) #samples
+			split_frames[split_name]["features"] = ff
+
+			if f.supervision == "supervised":
+				l_id = f.label.id
+				lf = Label.read_to_pandas(id=l_id, samples=samples) #samples
+				split_frames[split_name]["labels"] = lf
+		return split_frames
+
+
+	def read_to_numpy(id:int, splits:list=None):
+		split_frames = Splitset.read_to_pandas(id=id)
+
+		# possible keys() = train, test, validation
+		split_keys = split_frames.keys()
+		for split_name in split_keys:
+			set_keys = split_frames[split_name].keys()
+			# possible keys() = features, labels
+			for set_name in set_keys:
+				frame = split_frames[split_name][set_name]
+				arr = frame.to_numpy()
+				split_frames[split_name][set_name] = arr
+
 		return split_frames
 
 
