@@ -303,6 +303,17 @@ class Label(BaseModel):
 			print("Error - Column name not found in `Dataset.columns`.")
 			return None
 
+	def read_to_pandas(id:int, samples:list=None):
+		l = Label.get_by_id(id)
+		l_col = l.column
+		dataset_id = l.dataset.id
+		lf = Dataset.read_to_pandas(
+			id=dataset_id
+			,columns=l_col
+			,samples=samples
+		)
+		return lf
+
 
 
 
@@ -392,11 +403,15 @@ class Featureset(BaseModel):
 		)
 		return f
 
-	def read_to_pandas(id:int):
+	def read_to_pandas(id:int, samples:list=None):
 		f = Featureset.get_by_id(id)
 		f_cols = f.columns
 		dataset_id = f.dataset.id
-		ff = Dataset.read_to_pandas(id=dataset_id, columns=f_cols)
+		ff = Dataset.read_to_pandas(
+			id=dataset_id
+			,columns=f_cols
+			,samples=samples
+		)
 		return ff
 
 
@@ -539,11 +554,10 @@ class Splitset(BaseModel):
 			ff = Dataset.read_to_pandas(id=dataset_id, columns=f_cols)
 			split_frames[s]["features"] = ff
 
+			#ToDo... if supervised
 			lf = Dataset.read_to_pandas(id=dataset_id, columns=l_col)
 			split_frames[s]["labels"] = lf
-
 		return split_frames
-		#ToDo also need the labels... dict. key for each split.
 
 
 
