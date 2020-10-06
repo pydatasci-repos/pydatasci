@@ -116,8 +116,6 @@ class BaseModel(Model):
 		database = get_db()
 
 
-class Job(BaseModel):
-	status = CharField()
 
 
 class Dataset(BaseModel):
@@ -199,6 +197,7 @@ class Dataset(BaseModel):
 	def read_to_pandas(
 		id:int
 		,columns:list=None
+		,samples:list=None
 	):
 		"""
 		- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
@@ -244,20 +243,19 @@ class Dataset(BaseModel):
 				df = pd.read_parquet(
 					bytesio_data
 					,columns=columns)
+		
+		if samples is not None:
+			df = df.iloc[samples]
+
 		return df
 
 
 	def read_to_numpy(
 		id:int
 		,columns:list=None
+		,samples:list=None
 	):
-		"""
-		- Returns a NumPy structured array: https://numpy.org/doc/stable/user/basics.rec.html
-		- Started implementing `np.genfromtxt(bytesio_data, names=True, delimiter=',')`, but just switched to Pandas.
-		- There doesn't seem to be a direct Parquet to NumPy, so have to convert through PyArrow or Pandas.
-		"""
-		df = Dataset.read_to_pandas(id, columns=columns)
-		#arr = df.to_records(index=False)
+		df = Dataset.read_to_pandas(id, columns=columns, samples=samples)
 		arr = df.to_numpy()
 		return arr
 
@@ -277,6 +275,9 @@ class Dataset(BaseModel):
 		read as arrow
 		save as parquet from some kind of buffer?
 	"""
+
+
+
 
 class Label(BaseModel):
 	column=CharField()
@@ -301,6 +302,8 @@ class Label(BaseModel):
 		else:
 			print("Error - Column name not found in `Dataset.columns`.")
 			return None
+
+
 
 
 class Featureset(BaseModel):
@@ -368,7 +371,7 @@ class Featureset(BaseModel):
 		else:
 			print("\nError - Could not find all of the provided column names in `Dataset.columns`.\n" + " ".join(d_cols) + "\n")
 
-
+	# Redo this as the `columns=None` option
 	def create_all_columns(
 		dataset_id:int
 		,label_id:int=None
@@ -389,15 +392,23 @@ class Featureset(BaseModel):
 		)
 		return f
 
+	def read_to_pandas(id:int):
+		f = Featureset.get_by_id(id)
+		f_cols = f.columns
+		dataset_id = f.dataset.id
+		ff = Dataset.read_to_pandas(id=dataset_id, columns=f_cols)
+		return ff
+
+
 
 class Splitset(BaseModel):
 	"""
-	- Belongs to a Featureset, not a Dataset, because the rows selected vary based on the stratification of the features during the split,
+	- Belongs to a Featureset, not a Dataset, because the samples selected vary based on the stratification of the features during the split,
 	  and a Featureset already has a Dataset anyways.
 	  https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedKFold.html
 	- Can this also be supervised and unsupervised?
 	"""
-	rows = JSONField()
+	samples = JSONField()
 	sizes = JSONField()
 	is_validated=BooleanField()
 	#is_folded=BooleanField()
@@ -454,7 +465,7 @@ class Splitset(BaseModel):
 
 		"""
 		Simulate an index to be split alongside features and labels
-		in order to keep track of the rows being used in the resulting splits.
+		in order to keep track of the samples being used in the resulting splits.
 		"""
 		row_count = arr_l.shape[0]
 		arr_idx = np.arange(row_count)
@@ -466,7 +477,7 @@ class Splitset(BaseModel):
 			,stratify = arr_l
 		)
 		
-		rows = {}
+		samples = {}
 
 		if size_validation is not None:
 			features_train, features_validation, labels_train, labels_validation, indices_train, indices_validation = train_test_split(
@@ -475,11 +486,11 @@ class Splitset(BaseModel):
 				,stratify = labels_train
 			)
 			indices_lst_validation = indices_validation.tolist()
-			rows["validation"] = indices_lst_validation
+			samples["validation"] = indices_lst_validation
 
 		indices_lst_train, indices_lst_test  = indices_train.tolist(), indices_test.tolist()
-		rows["train"] = indices_lst_train
-		rows["test"] = indices_lst_test
+		samples["train"] = indices_lst_train
+		samples["test"] = indices_lst_test
 
 		sizes = {}
 		size_train = 1.0 - size_test
@@ -495,7 +506,7 @@ class Splitset(BaseModel):
 		s = Splitset.create(
 			featureset = f
 			,label = l
-			,rows = rows
+			,samples = samples
 			,sizes = sizes
 			,is_validated = is_validated
 			,is_folded = is_folded
@@ -503,8 +514,39 @@ class Splitset(BaseModel):
 		)
 		return s
 
-#class Job(BaseModel):
-	#this will also have the deferrable key to label. 
+
+	def read_to_pandas(id:int, splits:list=None):
+		if splits is not None:
+			if len(splits) == 0:
+				raise ValueError("Yikes - `splits:list` is an empty list.\nIt can be None, which defaults to all splits, but it can't not empty.")
+
+		s = Splitset.get_by_id(id)
+		
+		#ToDo... this should be using a featureset call.
+		#and label call. meaning they all need `samples:list=None`
+		f = s.featureset
+		f_cols = f.columns
+		l_col = f.label.column
+		dataset_id = f.dataset.id
+
+		if splits is None:
+			splits = list(s.samples.keys())
+
+		split_frames = {}
+		for s in splits:
+			split_frames[s] = {"features":None, "label": None}
+
+			ff = Dataset.read_to_pandas(id=dataset_id, columns=f_cols)
+			split_frames[s]["features"] = ff
+
+			lf = Dataset.read_to_pandas(id=dataset_id, columns=l_col)
+			split_frames[s]["labels"] = lf
+
+		return split_frames
+		#ToDo also need the labels... dict. key for each split.
 
 
 
+
+class Job(BaseModel):
+	status = CharField()

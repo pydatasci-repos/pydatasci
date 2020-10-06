@@ -6,7 +6,7 @@
 PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
 
 # Mission
-* **Reproducible**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, split, fold, parameter, run, model, and result - is persisted in a lightweight fashion. So hypertune to your heart's content, compare models, and pick the best one with the proof to back it up.<br /><br />
+* **Reproducible**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, sample, split, fold, parameter, run, model, and result - is persisted in a lightweight fashion. So hypertune to your heart's content, visually compare models, and know you've found the best one with the proof to back it up.<br /><br />
 
 * **Local-first**<br />Empower non-cloud users (academic/ institute HPCs, private cloud companies, remote server SSH'ers, and everyday desktop hackers) with the same quality ML services as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
@@ -15,7 +15,9 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 * **Scalable**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
 
 # Painpoint Solved
-In writing a paper about comparative methods for the interpretation of deep learning activation values via graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. I had done the hard part in figuring out the science, but this permuted world was just a mess. When I took a look at other tools in the space, I found they were either: cloud-only, too complex/ bad documentation, incomplete (install your own database server), or too proprietary/ walled garden/ tool-biased. Let's be honest, the average data scientist isn't the world's best software engineer/ architect, so they naturally want a low-code fix for keeping track of everything.
+In writing a paper about comparative methods for the interpretation of deep learning activation values via graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. I had done the hard part in figuring out the science, but this permuted world was just a mess. 
+
+I've been keeping an eye on other tools in the space and I've found them lackin in that they are either: cloud-only, too complex/ bad documentation, incomplete (install your own database server), not distributed properly, or too proprietary/ walled garden/ tool-biased.
 
 # Functionality
 - Compresses a dataset (csv, tsv, parquet) to keep track of.
@@ -29,8 +31,8 @@ In writing a paper about comparative methods for the interpretation of deep lear
 # Community
 *Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
 
-* **Data types:** tabular, longitudinal, image, graph, audio, video, gaming.
-* **Analysis types:** classification, regression, dimensionality reduction, feature engineering, recurrent, generative, reinforcement, NLP.
+* **Data types to support:** tabular, longitudinal, image, graph, audio, video, gaming.
+* **Analysis types to support:** classification, regression, dimensionality reduction, feature engineering, recurrent, generative, reinforcement, NLP.
 
 ---
 
