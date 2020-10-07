@@ -81,7 +81,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Splitset])
+		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Algorithm])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -127,7 +127,7 @@ class Dataset(BaseModel):
 	columns= JSONField()
 	#is_shuffled= BooleanField()#False
 
-	def create_from_file(
+	def from_file(
 		path:str
 		,file_format:str
 		,name:str=None
@@ -194,7 +194,7 @@ class Dataset(BaseModel):
 			return d
 
 
-	def read_to_pandas(
+	def to_pandas(
 		id:int
 		,columns:list=None
 		,samples:list=None
@@ -250,12 +250,12 @@ class Dataset(BaseModel):
 		return df
 
 
-	def read_to_numpy(
+	def to_numpy(
 		id:int
 		,columns:list=None
 		,samples:list=None
 	):
-		df = Dataset.read_to_pandas(id=id, columns=columns, samples=samples)
+		df = Dataset.to_pandas(id=id, columns=columns, samples=samples)
 		arr = df.to_numpy()
 		return arr
 
@@ -265,15 +265,14 @@ class Dataset(BaseModel):
 	- Longitudinal data?
 	- Images?
 	"""
-
 	"""
-	def create_dataset_from_pandas():
+	def from_pandas():
 		read as arrow
-		save as parquet from some kind of buffer?
+		save as tsv
 
-	def create_dataset_from_numpy():
+	def from_numpy():
 		read as arrow
-		save as parquet from some kind of buffer?
+		save as tsv
 	"""
 
 
@@ -284,7 +283,7 @@ class Label(BaseModel):
 	
 	dataset = ForeignKeyField(Dataset, backref='labels')
 	
-	def create_from_dataset(
+	def from_dataset(
 		dataset_id:int
 		,column:str
 	):
@@ -304,12 +303,12 @@ class Label(BaseModel):
 			return None
 
 
-	def read_to_pandas(id:int, samples:list=None):
+	def to_pandas(id:int, samples:list=None):
 		l = Label.get_by_id(id)
 		l_col = l.column
 		dataset_id = l.dataset.id
 		
-		lf = Dataset.read_to_pandas(
+		lf = Dataset.to_pandas(
 			id=dataset_id
 			,columns=l_col
 			,samples=samples
@@ -317,8 +316,8 @@ class Label(BaseModel):
 		return lf
 
 
-	def read_to_numpy(id:int, samples:list=None):
-		lf = Label.read_to_pandas(id=id, samples=samples)
+	def to_numpy(id:int, samples:list=None):
+		lf = Label.to_pandas(id=id, samples=samples)
 		l_arr = lf.to_numpy
 		return l_arr
 
@@ -329,7 +328,7 @@ class Featureset(BaseModel):
 	"""
 	- Remember, a Featureset is just a record of the columns being used.
 	- Decided not to go w subclasses of Unsupervised and Supervised because that would complicate the SDK for the user,
-	  and it essentially made every downstream model forked into subclasses.
+	  and it essentially forked every downstream model into two subclasses.
 	- So the ForeignKey on label is optional:
 	  http://docs.peewee-orm.com/en/latest/peewee/api.html?highlight=deferredforeign#DeferredForeignKey
 	- PCA components vary across featuresets. When different columns are used those columns have different component values.
@@ -341,91 +340,78 @@ class Featureset(BaseModel):
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='featuresets')
 
 
-	def create_from_dataset_columns(
+	def from_dataset(
 		dataset_id:int
-		,columns:list
-		,label_id:int=None # triggers `supervision = unsupervised`
+		,label_id:int=None # triggers `supervision = unsupervised`.
+		,columns:list=None # triggers use of all available columns either including or excluding label.
+		#,run_pca:boolean=False # triggers PCA analysis of all columns
 	):
 		d = Dataset.get_by_id(dataset_id)
-
-		f_cols = columns
 		d_cols = d.columns
-		# Test that all Featureset columns exist in the Dataset, but not yet vice versa.
-		# The whole transaction is invalid if this is False.
-		all_f_cols_found = all(col in d_cols for col in f_cols)
-		if all_f_cols_found:
-			if label_id is not None:
-				l = Label.get_by_id(label_id)
-				l_col = l.column
-				contains_label = l_col in f_cols
-				if contains_label:
-					print("\nError - Label column `" + l_col + "` found within Featureset columns provided.\nYou cannot include the Label column in a Featureset of that Label.\n")
-				else:
-					supervision = "supervised"
-					# Prior to checking the reverse, remove the Label column.
-					d_cols.remove(l_col)
-					all_d_cols_found_but_label = all(i in f_cols for i in d_cols)
-					d_cols.append(l_col)
-					if all_d_cols_found_but_label:
-						contains_all_columns = True
-					else:
-						contains_all_columns = False
+
+		# Check to see if user-provided columns exist
+		if columns is not None:
+			all_cols_found = all(col in d_cols for col in columns)
+			if not all_cols_found:
+				raise ValueError("Yikes - You specified `columns` that do not exist in the dataset.")
+
+		if label_id is None:
+			supervision = "unsupervised"
+			l = None
+			if columns is None:
+				columns = d_cols
+				contains_all_columns = True
 			else:
-				l = None
-				supervision = "unsupervised"
-				all_d_cols_found = all(i in f_cols for i in d_cols)
+				# Check if user-provided columns contain all of the dataset columns.
+				all_d_cols_found = all(col in columns for col in d_cols)
 				if all_d_cols_found:
 					contains_all_columns = True
 				else:
-					contains_all_columns = False			
-
-			f = Featureset.create(
-				dataset=d
-				,label=l
-				,columns=columns
-				,supervision=supervision
-				,contains_all_columns=contains_all_columns
-			)
-			return f
+					contains_all_columns = False
 		else:
-			print("\nError - Could not find all of the provided column names in `Dataset.columns`.\n" + " ".join(d_cols) + "\n")
-
-	# Redo this as the `columns=None` option
-	def create_all_columns(
-		dataset_id:int
-		,label_id:int=None
-	):
-		d = Dataset.get_by_id(dataset_id)
-		dataset_cols = d.columns
-
-		if label_id is not None:
+			supervision = "supervised"
 			l = Label.get_by_id(label_id)
-			label_col = l.column
-			# Overwrites the original list.
-			dataset_cols.remove(label_col)
+			l_col = l.column
+			d_cols.remove(l_col)
+			
+			if columns is None:
+				columns = d_cols
+				contains_all_columns = True	
+			else:
+				contains_label = l_col in columns
+				if contains_label:
+					raise ValueError("\nYikes - Label column '" + l_col + "' found within Featureset columns provided.\nYou cannot include the Label column in a supervised Featureset.\n")
 
-		f = Featureset.create_from_dataset_columns(
-			dataset_id = dataset_id
-			,columns = dataset_cols
-			,label_id = label_id
+				all_d_cols_found = all(col in columns for col in d_cols)
+				if all_d_cols_found:
+					contains_all_columns = True
+				else:
+					contains_all_columns = False
+
+		f = Featureset.create(
+			dataset=d
+			,label=l
+			,columns=columns
+			,supervision=supervision
+			,contains_all_columns=contains_all_columns
 		)
 		return f
 
 
-	def read_to_pandas(id:int, samples:list=None):
+	def to_pandas(id:int, samples:list=None):
 		f = Featureset.get_by_id(id)
 		f_cols = f.columns
 		dataset_id = f.dataset.id
 		
-		ff = Dataset.read_to_pandas(
+		ff = Dataset.to_pandas(
 			id = dataset_id
 			,columns = f_cols
 			,samples = samples
 		)
 		return ff
 
-	def read_to_numpy(id:int, samples:list=None):
-		ff = Featureset.read_to_pandas(id=id, samples=samples)
+	def to_numpy(id:int, samples:list=None):
+		ff = Featureset.to_pandas(id=id, samples=samples)
 		f_arr = ff.to_numpy
 		return f_arr
 
@@ -449,7 +435,7 @@ class Splitset(BaseModel):
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='splitsets')
 	
 
-	def create_from_featureset(
+	def from_featureset(
 		featureset_id:int
 		,size_test:float=None
 		,size_validation:float=None
@@ -485,14 +471,14 @@ class Splitset(BaseModel):
 
 		# Feature data.
 		d_id = f.dataset.id
-		arr_f = Dataset.read_to_numpy(id=d_id, columns=f_cols)
+		arr_f = Dataset.to_numpy(id=d_id, columns=f_cols)
 
 		# Label data.
 		l = f.label
 		if l is not None:
 			l_id = l.id
 			l_col = l.column 
-			arr_l = Dataset.read_to_numpy(id=d_id, columns=[l_col])
+			arr_l = Dataset.to_numpy(id=d_id, columns=[l_col])
 
 		"""
 		Simulate an index to be split alongside features and labels
@@ -546,7 +532,7 @@ class Splitset(BaseModel):
 		return s
 
 
-	def read_to_pandas(id:int, splits:list=None):
+	def to_pandas(id:int, splits:list=None):
 		s = Splitset.get_by_id(id)
 
 		if splits is not None:
@@ -564,18 +550,18 @@ class Splitset(BaseModel):
 
 			samples = s.samples[split_name]
 
-			ff = Featureset.read_to_pandas(id=f_id, samples=samples) #samples
+			ff = Featureset.to_pandas(id=f_id, samples=samples) #samples
 			split_frames[split_name]["features"] = ff
 
 			if f.supervision == "supervised":
 				l_id = f.label.id
-				lf = Label.read_to_pandas(id=l_id, samples=samples) #samples
+				lf = Label.to_pandas(id=l_id, samples=samples) #samples
 				split_frames[split_name]["labels"] = lf
 		return split_frames
 
 
-	def read_to_numpy(id:int, splits:list=None):
-		split_frames = Splitset.read_to_pandas(id=id)
+	def to_numpy(id:int, splits:list=None):
+		split_frames = Splitset.to_pandas(id=id)
 
 		# possible keys() = train, test, validation
 		split_keys = split_frames.keys()
@@ -591,6 +577,8 @@ class Splitset(BaseModel):
 
 
 
+class Algorithm(BaseModel):
+	name = CharField()
 
 class Job(BaseModel):
 	status = CharField()

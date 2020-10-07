@@ -100,7 +100,7 @@ Supported tabular file formats include: CSV, [TSV](https://stackoverflow.com/a/9
 The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
 
 ```python
-dataset = aidb.Dataset.create_from_file(
+dataset = aidb.Dataset.from_file(
 	path = 'iris.tsv'
 	,file_format = 'tsv'
 	,name = 'tab-separated plants'
@@ -138,7 +138,7 @@ arr2[:4]
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
 ```python
-label = aidb.Label.create_from_dataset(
+label = aidb.Label.from_dataset(
 	dataset_id = 1
 	,column_name = 'species'
 )
@@ -151,12 +151,12 @@ This won't duplicate your data. It simply records the `columns` to be used in tr
 #### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
 ```python
-supervised_bruteforce = aidb.Featureset.create_all_columns(
+supervised_bruteforce = aidb.Featureset.create_all_columns(  <----- update
 	dataset_id = 1
 	,label_id = 1
 )
 
-supervised_selective = aidb.Featureset.create_from_dataset_columns(
+supervised_selective = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	,label_id = 1
 	,columns = ['petal_width', 'petal_length']
@@ -168,11 +168,11 @@ supervised_selective = aidb.Featureset.create_from_dataset_columns(
 Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
 ```python
-unsupervised_bruteforce = aidb.Featureset.create_all_columns(
+unsupervised_bruteforce = aidb.Featureset.create_all_columns( <----- update
 	dataset_id = 1
 )
 
-unsupervised_selective = aidb.Featureset.create_from_dataset_columns(
+unsupervised_selective = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	,columns = ['petal_width', 'petal_width', 'sepal_length']
 )
