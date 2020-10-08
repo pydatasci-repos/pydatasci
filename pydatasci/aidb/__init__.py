@@ -428,8 +428,8 @@ class Splitset(BaseModel):
 	samples = JSONField()
 	sizes = JSONField()
 	is_validated=BooleanField()
-	#is_folded=BooleanField()
-	#fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
+	is_folded=BooleanField()
+	fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
 
 	featureset = ForeignKeyField(Featureset, backref='splitsets')
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='splitsets')
@@ -444,17 +444,17 @@ class Splitset(BaseModel):
 
 		if size_test is not None:
 			if (size_test <= 0.0) or (size_test >= 1.0):
-				raise ValueError("\n`size_test` must be between 0.0 and 1.0\n")
-		else:
-			# aka this is user-defined.
-			size_test = 0.25
+				raise ValueError("\nYikes - `size_test` must be between 0.0 and 1.0\n")
 		
+		if (size_validation is not None) and (size_test is None):
+			raise ValueError("\nYikes - you specified a `size_validation` without setting a `size_test`.")
+
 		if size_validation is not None:
 			if (size_validation <= 0.0) or (size_validation >= 1.0):
-				raise ValueError("\n`size_test` must be between 0.0 and 1.0\n")
+				raise ValueError("\nYikes - `size_test` must be between 0.0 and 1.0\n")
 			sum_test_val = size_validation + size_test
 			if sum_test_val >= 1.0:
-				raise ValueError("\nSum of `size_test` and `size_test` must be between 0.0 and 1.0 to leave room for training set.\n")
+				raise ValueError("\nYikes - Sum of `size_test` + `size_test` must be between 0.0 and 1.0 to leave room for training set.\n")
 			"""
 			Have to run train_test_split twice do the math to figure out the size of 2nd split.
 			Let's say I want {train:0.67, validation:0.13, test:0.20}
@@ -469,53 +469,68 @@ class Splitset(BaseModel):
 		f = Featureset.get_by_id(featureset_id)
 		f_cols = f.columns
 
-		# Feature data.
+		# Feature data to be split.
 		d_id = f.dataset.id
 		arr_f = Dataset.to_numpy(id=d_id, columns=f_cols)
-
-		# Label data.
-		l = f.label
-		if l is not None:
-			l_id = l.id
-			l_col = l.column 
-			arr_l = Dataset.to_numpy(id=d_id, columns=[l_col])
 
 		"""
 		Simulate an index to be split alongside features and labels
 		in order to keep track of the samples being used in the resulting splits.
 		"""
-		row_count = arr_l.shape[0]
+		row_count = arr_f.shape[0]
 		arr_idx = np.arange(row_count)
-
-		# `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
-		features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
-			arr_f, arr_l, arr_idx
-			,test_size = size_test
-			,stratify = arr_l
-		)
 		
 		samples = {}
-
-		if size_validation is not None:
-			features_train, features_validation, labels_train, labels_validation, indices_train, indices_validation = train_test_split(
-				features_train, labels_train, indices_train
-				,test_size = pct_for_2nd_split
-				,stratify = labels_train
-			)
-			indices_lst_validation = indices_validation.tolist()
-			samples["validation"] = indices_lst_validation
-
-		indices_lst_train, indices_lst_test  = indices_train.tolist(), indices_test.tolist()
-		samples["train"] = indices_lst_train
-		samples["test"] = indices_lst_test
-
 		sizes = {}
-		size_train = 1.0 - size_test
-		if size_validation is not None:
-			size_train -= size_validation
-			sizes["validation"] = size_validation
-		sizes["test"] = size_test
-		sizes["train"] = size_train
+
+		l = f.label
+		if l is None:
+			# Unsupervised
+			if (size_test is not None) or (size_validation is not None):
+				raise ValueError("\nYikes - Unsupervised Featuresets support neither test nor validation splits.\nSet both `size_test` and `size_validation` as `None` for this Featureset.\n")
+			else:
+				indices_lst_train = arr_idx.tolist()
+				samples["train"] = indices_lst_train
+				sizes["train"] = {"percent": 1.00, "count": row_count}
+		else:
+			# Supervised
+			if size_test is None:
+				size_test = 0.25
+
+			l_id = l.id
+			l_col = l.column 
+			arr_l = Dataset.to_numpy(id=d_id, columns=[l_col])
+
+			# `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
+			features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
+				arr_f, arr_l, arr_idx
+				,test_size = size_test
+				,stratify = arr_l
+			)
+
+			if size_validation is not None:
+				features_train, features_validation, labels_train, labels_validation, indices_train, indices_validation = train_test_split(
+					features_train, labels_train, indices_train
+					,test_size = pct_for_2nd_split
+					,stratify = labels_train
+				)
+				indices_lst_validation = indices_validation.tolist()
+				samples["validation"] = indices_lst_validation
+
+			indices_lst_train, indices_lst_test  = indices_train.tolist(), indices_test.tolist()
+			samples["train"] = indices_lst_train
+			samples["test"] = indices_lst_test
+
+			size_train = 1.0 - size_test
+			if size_validation is not None:
+				size_train -= size_validation
+				count_validation = len(indices_lst_validation)
+				sizes["validation"] =  {"percent": size_validation, "count": count_validation}
+			
+			count_test = len(indices_lst_test)
+			count_train = len(indices_lst_train)
+			sizes["test"] = {"percent": size_test, "count": count_test}
+			sizes["train"] = {"percent": size_train, "count": count_train}
 
 		if fold_count < 2:
 			is_folded = False
