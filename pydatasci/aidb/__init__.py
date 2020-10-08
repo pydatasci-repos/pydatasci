@@ -318,7 +318,7 @@ class Label(BaseModel):
 
 	def to_numpy(id:int, samples:list=None):
 		lf = Label.to_pandas(id=id, samples=samples)
-		l_arr = lf.to_numpy
+		l_arr = lf.to_numpy()
 		return l_arr
 
 
@@ -412,7 +412,7 @@ class Featureset(BaseModel):
 
 	def to_numpy(id:int, samples:list=None):
 		ff = Featureset.to_pandas(id=id, samples=samples)
-		f_arr = ff.to_numpy
+		f_arr = ff.to_numpy()
 		return f_arr
 
 
@@ -557,38 +557,51 @@ class Splitset(BaseModel):
 			splits = list(s.samples.keys())
 
 		f = s.featureset
-		f_id = f.id
+		f_supervision = f.supervision
 
 		split_frames = {}
+		
+		if f_supervision == "unsupervised":
+			set_dct = {"features": None}
+		else:
+			set_dct = {"features": None, "labels": None}
+
+		# split_names = train, test, validation
 		for split_name in splits:
-			split_frames[split_name] = {"features":None, "labels": None}
+			split_frames[split_name] = set_dct
 
 			samples = s.samples[split_name]
 
-			ff = Featureset.to_pandas(id=f_id, samples=samples) #samples
+			ff = f.to_pandas(samples=samples)
 			split_frames[split_name]["features"] = ff
 
-			if f.supervision == "supervised":
-				l_id = f.label.id
-				lf = Label.to_pandas(id=l_id, samples=samples) #samples
+			if f_supervision == "supervised":
+				l = f.label
+				lf = l.to_pandas(samples=samples)
 				split_frames[split_name]["labels"] = lf
 		return split_frames
 
 
 	def to_numpy(id:int, splits:list=None):
-		split_frames = Splitset.to_pandas(id=id)
+		split_frames = Splitset.to_pandas(id=id, splits=splits)
 
-		# possible keys() = train, test, validation
+		# packing a fresh dct because I don't trust updating dcts.
+		split_arrs = {}
+
 		split_keys = split_frames.keys()
-		for split_name in split_keys:
-			set_keys = split_frames[split_name].keys()
-			# possible keys() = features, labels
-			for set_name in set_keys:
-				frame = split_frames[split_name][set_name]
-				arr = frame.to_numpy()
-				split_frames[split_name][set_name] = arr
+		# split_names = train, test, validation
+		for split in split_keys:
+			set_keys = split_frames[split].keys()
+			split_arrs[split] = {}
 
-		return split_frames
+			# set_names = features, labels
+			for set_name in set_keys:
+				frame = split_frames[split][set_name]
+				arr = frame.to_numpy()
+				
+				split_arrs[split][set_name] = arr
+
+		return split_arrs
 
 
 
