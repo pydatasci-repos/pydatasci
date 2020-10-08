@@ -130,8 +130,8 @@ class Dataset(BaseModel):
 	def from_file(
 		path:str
 		,file_format:str
-		,name:str=None
-		,perform_gzip:bool=True
+		,name:str = None
+		,perform_gzip:bool = True
 	):
 		"""
 		- File is read in with pyarrow, converted to bytes, compressed by default, and stored as a SQLite blob field.
@@ -196,8 +196,8 @@ class Dataset(BaseModel):
 
 	def to_pandas(
 		id:int
-		,columns:list=None
-		,samples:list=None
+		,columns:list = None
+		,samples:list = None
 	):
 		"""
 		- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
@@ -230,8 +230,8 @@ class Dataset(BaseModel):
 				if ff == 'tsv':
 					df = pd.read_csv(
 						bytesio_data
-						,sep='\t'
-						,usecols=columns)
+						,sep = '\t'
+						,usecols = columns)
 				else:
 					df = pd.read_csv(bytesio_data, usecols=columns)
 		elif ff == 'parquet':
@@ -242,7 +242,7 @@ class Dataset(BaseModel):
 			else:
 				df = pd.read_parquet(
 					bytesio_data
-					,columns=columns)
+					,columns = columns)
 		
 		if samples is not None:
 			df = df.iloc[samples]
@@ -252,8 +252,8 @@ class Dataset(BaseModel):
 
 	def to_numpy(
 		id:int
-		,columns:list=None
-		,samples:list=None
+		,columns:list = None
+		,samples:list = None
 	):
 		df = Dataset.to_pandas(id=id, columns=columns, samples=samples)
 		arr = df.to_numpy()
@@ -275,6 +275,23 @@ class Dataset(BaseModel):
 		save as tsv
 	"""
 
+	def make_label(id:int, column:str):
+		l = Label.from_dataset(dataset_id=id, column=column)
+		return l
+
+	def make_featureset(
+		id:int
+		, label_id:int=None
+		, columns:list=None
+	):
+		#Future: runPCA
+		f = Featureset.from_dataset(
+			dataset_id = id
+			, label_id = label_id
+			, columns = columns
+		)
+		return f
+
 
 
 
@@ -283,20 +300,14 @@ class Label(BaseModel):
 	
 	dataset = ForeignKeyField(Dataset, backref='labels')
 	
-	def from_dataset(
-		dataset_id:int
-		,column:str
-	):
+	def from_dataset(dataset_id:int, column:str):
 		d = Dataset.get_by_id(dataset_id)
 
 		# verify that the column exists
 		d_columns = d.columns
 		column_found = column in d_columns
 		if column_found:
-			l = Label.create(
-				dataset=d
-				,column=column
-			)
+			l = Label.create(dataset=d, column=column)
 			return l
 		else:
 			print("Error - Column name not found in `Dataset.columns`.")
@@ -309,9 +320,9 @@ class Label(BaseModel):
 		dataset_id = l.dataset.id
 		
 		lf = Dataset.to_pandas(
-			id=dataset_id
-			,columns=l_col
-			,samples=samples
+			id = dataset_id
+			,columns = l_col
+			,samples = samples
 		)
 		return lf
 
@@ -344,7 +355,7 @@ class Featureset(BaseModel):
 		dataset_id:int
 		,label_id:int=None # triggers `supervision = unsupervised`.
 		,columns:list=None # triggers use of all available columns either including or excluding label.
-		#,run_pca:boolean=False # triggers PCA analysis of all columns
+		#Future: runPCA #,run_pca:boolean=False # triggers PCA analysis of all columns
 	):
 		d = Dataset.get_by_id(dataset_id)
 		d_cols = d.columns
@@ -389,11 +400,11 @@ class Featureset(BaseModel):
 					contains_all_columns = False
 
 		f = Featureset.create(
-			dataset=d
-			,label=l
-			,columns=columns
-			,supervision=supervision
-			,contains_all_columns=contains_all_columns
+			dataset = d
+			,label = l
+			,columns = columns
+			,supervision = supervision
+			,contains_all_columns = contains_all_columns
 		)
 		return f
 
@@ -410,10 +421,26 @@ class Featureset(BaseModel):
 		)
 		return ff
 
+
 	def to_numpy(id:int, samples:list=None):
 		ff = Featureset.to_pandas(id=id, samples=samples)
 		f_arr = ff.to_numpy()
 		return f_arr
+
+
+	def make_splitset(
+		id:int
+		,size_test:float = None
+		,size_validation:float = None
+		,fold_count:int = 1 #Future: folds
+	):
+		s = Splitset.from_featureset(
+			featureset_id = id
+			,size_test = size_test
+			,size_validation = size_validation
+			,fold_count = 1 #Future: folds
+		)
+		return s
 
 
 
@@ -427,9 +454,9 @@ class Splitset(BaseModel):
 	"""
 	samples = JSONField()
 	sizes = JSONField()
-	is_validated=BooleanField()
-	is_folded=BooleanField()
-	fold_count=IntegerField() # validate too many folds? try setting between 3-10 depending on the size of your data.
+	is_validated = BooleanField()
+	is_folded = BooleanField()
+	fold_count = IntegerField() #Future: folds # validate too many folds? try setting between 3-10 depending on the size of your data.
 
 	featureset = ForeignKeyField(Featureset, backref='splitsets')
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='splitsets')
@@ -437,9 +464,9 @@ class Splitset(BaseModel):
 
 	def from_featureset(
 		featureset_id:int
-		,size_test:float=None
-		,size_validation:float=None
-		,fold_count:int=1
+		,size_test:float = None
+		,size_validation:float = None
+		,fold_count:int = 1
 	):
 
 		if size_test is not None:
@@ -566,6 +593,7 @@ class Splitset(BaseModel):
 		else:
 			set_dct = {"features": None, "labels": None}
 
+		# Flag:Optimize (switch to generators for memory usage)
 		# split_names = train, test, validation
 		for split_name in splits:
 			split_frames[split_name] = set_dct
@@ -583,6 +611,11 @@ class Splitset(BaseModel):
 
 
 	def to_numpy(id:int, splits:list=None):
+		"""
+		Flag:Optimize 
+		- Worried it's holding all dataframes and arrays in memory.
+		- Generators to access one [key][set] at a time?
+		"""
 		split_frames = Splitset.to_pandas(id=id, splits=splits)
 
 		# packing a fresh dct because I don't trust updating dcts.
@@ -605,8 +638,12 @@ class Splitset(BaseModel):
 
 
 
+
 class Algorithm(BaseModel):
 	name = CharField()
+
+
+
 
 class Job(BaseModel):
 	status = CharField()
