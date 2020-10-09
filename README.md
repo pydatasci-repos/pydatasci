@@ -6,38 +6,39 @@
 PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
 
 # Mission
-* **Reproducible**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, sample, split, fold, parameter, run, model, and result - is persisted in a lightweight fashion. So hypertune to your heart's content, visually compare models, and know you've found the best one with the proof to back it up.<br /><br />
+* **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, sample, split, fold, parameter, run, model, and result - is automtically persisted in a lightweight, file-based database that is setup when you import the package. So hypertune to your heart's content, visually compare models, and know you've found the best one with the proof to back it up.<br /><br />
 
-* **Local-first**<br />Empower non-cloud users (academic/ institute HPCs, private cloud companies, remote server SSH'ers, and everyday desktop hackers) with the same quality ML services as present in public clouds (e.g. AWS SageMaker).<br /><br />
+* **Local-First**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
-* **Integrated**<br />Don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Weave automated tracking into their existing code to work alongside the existing ecosystem of data science tools.<br /><br />
+* **Code-Integrated**<br />We don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Weave automated tracking into their existing code to work alongside the existing ecosystem of data science tools.<br /><br />
 
-* **Scalable**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
+* **Scale-Em-If-You-Gottem**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
 
 # Painpoint Solved
-In writing a paper about comparative methods for the interpretation of deep learning activation values via graph neural networks, CNNs, and LSTMs - I found myself comparing multiple models with many parameter combinations. I was burdened by questions like: Had I already tried these parameters? How was I going to save the metrics to compare the models? I was literally screenshotting my parameters and charts. That's not conducive to the scientific method. I had done the hard part in figuring out the science, but this permuted world was just a mess. 
+At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really show record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. "Fuckkk," I said out loud, "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it.
 
-I've been keeping an eye on other tools in the space and I've found them lackin in that they are either: cloud-only, too complex/ bad documentation, incomplete (install your own database server), not distributed properly, or too proprietary/ walled garden/ tool-biased.
+I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the programming was too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
 
 # Functionality
-- Compresses a dataset (csv, tsv, parquet) to keep track of.
-- Derives informative featuresets and/ or labels from that dataset.
--- Treats validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
-- Queues hypertuning jobs and batches.
-- Calculates and saves performance model metrics of each model.
-- Visually compares models to find the best one.
-- Scales out to run cloud jobs (data size, training time) by toggling `cloud_queue = True`.
+- Compress a dataset (csv, tsv, parquet) to be analyzed.
+- Derive informative featuresets from that dataset using supervised and unsupervised methods.
+- Split your samples while treat validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
+- Queue hypertuning jobs and batches based on hyperparameter combinations.
+- Evaluate and save the performance metrics of each model.
+- Visually compare models to find the best one.
+- Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
+- Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
 # Community
-*Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks. `layne <at> pydatasci.com`
+*Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks.
 
-* **Data types to support:** tabular, longitudinal, image, graph, audio, video, gaming.
+* **Data types to support:** tabular, time series, image, graph, audio, video, gaming.
 * **Analysis types to support:** classification, regression, dimensionality reduction, feature engineering, recurrent, generative, reinforcement, NLP.
 
 ---
 
 # Installation
-Requires Python 3+. You will only need to perform these steps the first time you use the package. 
+Requires Python 3+ (check your deep learning library's Python requirements). You will only need to perform these steps the first time you use the package. 
 
 Enter the following commands one-by-one and follow any instructions returned by the command prompt to resolve errors should they arise.
 
@@ -88,12 +89,13 @@ When deleting the database, you need to either reload the `aidb` module or resta
 
 If you've already completed the *Installation* section above, let's get started.
 
+### 1. Import the Library
 ```python
 import pydatasci as pds
 from pydatasci import aidb
 ```
 
-## 1. Add a `Dataset`.
+### 2. Add a `Dataset`.
 
 Supported tabular file formats include: CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point, the project's support for Parquet is extremely minimal.
 
@@ -101,7 +103,7 @@ The bytes of the file will be stored as a BlobField in the SQLite database file.
 
 ```python
 dataset = aidb.Dataset.from_file(
-	path = 'iris.tsv'
+	path = 'iris.tsv' 
 	,file_format = 'tsv'
 	,name = 'tab-separated plants'
 	,perform_gzip = True
@@ -110,26 +112,27 @@ dataset = aidb.Dataset.from_file(
 
 > You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
 
-### Fetch a `Dataset`.
+#### Fetch a `Dataset`.
 
 Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
 
-#### Pandas
+#### Pandas & NumPy
 ```python
-df = dataset.read_to_pandas()
+df = dataset.to_pandas()
 df.head()
 
-df2 = aidb.Dataset.read_to_pandas(id = 1)
-df2.head()
-```
-
-#### NumPy
-```python
-arr = dataset.read_to_numpy()
+arr = dataset.to_numpy()
 arr[:4]
 
-arr2 = aidb.Dataset.read_to_numpy(id = 1)
-arr2[:4]
+
+```
+
+```python
+df = aidb.Dataset.to_pandas(id=1)
+df.head()
+
+arr = aidb.Dataset.to_numpy(id=1)
+arr[:4]
 ```
 > We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 

@@ -279,16 +279,32 @@ class Dataset(BaseModel):
 		l = Label.from_dataset(dataset_id=id, column=column)
 		return l
 
+
+	def fetch_label_by_name(id:int, label_name:str):
+		d = Dataset.get_by_id(id)
+		try:
+			matching_label = d.labels.select().where(Label.column==label_name)[0]
+		except:
+			raise ValueError("\nYikes - there is no Label with a `column` attribute named '" + label_name + "'\n")
+		return matching_label
+
+
 	def make_featureset(
 		id:int
-		, label_id:int=None
+		, label_id:str=None
+		, label_name:str=None
 		, columns:list=None
 	):
-		#Future: runPCA
+		# Default to fetching label_id by `Label.column` name if specified.
+		if label_name is not None:
+			matching_label = Dataset.fetch_label_by_name(id=id, label_name=label_name)
+			label_id = matching_label.id
+
 		f = Featureset.from_dataset(
 			dataset_id = id
 			, label_id = label_id
 			, columns = columns
+			#Future: runPCA, correlationmatrix, feature_importance
 		)
 		return f
 
@@ -303,6 +319,12 @@ class Label(BaseModel):
 	def from_dataset(dataset_id:int, column:str):
 		d = Dataset.get_by_id(dataset_id)
 
+		# check for duplicates
+		d_labels = d.labels
+		d_labels_col = [l.column for l in d_labels]
+		if column in d_labels_col:
+			raise ValueError("\nYikes - This dataset already has a Label with target column named '" + column + "'.\nCannot create duplicate Label.\n")
+
 		# verify that the column exists
 		d_columns = d.columns
 		column_found = column in d_columns
@@ -310,8 +332,7 @@ class Label(BaseModel):
 			l = Label.create(dataset=d, column=column)
 			return l
 		else:
-			print("Error - Column name not found in `Dataset.columns`.")
-			return None
+			raise ValueError("\nYikes - Column name '" + column + "' not found in `Dataset.columns`.\n")
 
 
 	def to_pandas(id:int, samples:list=None):
@@ -364,7 +385,7 @@ class Featureset(BaseModel):
 		if columns is not None:
 			all_cols_found = all(col in d_cols for col in columns)
 			if not all_cols_found:
-				raise ValueError("Yikes - You specified `columns` that do not exist in the dataset.")
+				raise ValueError("Yikes - You specified `columns` that do not exist in the Dataset.")
 
 		if label_id is None:
 			supervision = "unsupervised"
@@ -382,6 +403,7 @@ class Featureset(BaseModel):
 		else:
 			supervision = "supervised"
 			l = Label.get_by_id(label_id)
+
 			l_col = l.column
 			d_cols.remove(l_col)
 			
@@ -398,6 +420,16 @@ class Featureset(BaseModel):
 					contains_all_columns = True
 				else:
 					contains_all_columns = False
+		"""
+		Check for an exact duplicate of this featureset-to-label for this dataset.
+		It's this far down in the method due to handling of `columns=None`.
+		""" 
+		new_cols_alpha = sorted(columns)
+		d_fsets_cols = [f.columns for f in d.featuresets]
+		d_fsets_cols_alpha = [sorted(cols) for cols in d_fsets_cols]
+		bools_check_new_cols = [new_cols_alpha == cols for cols in d_fsets_cols_alpha]
+		if True in bools_check_new_cols:
+			raise ValueError("\nYikes - Based on the `columns` provided, this Featureset already exists for this Dataset.\n")
 
 		f = Featureset.create(
 			dataset = d
@@ -631,8 +663,8 @@ class Splitset(BaseModel):
 			for set_name in set_keys:
 				frame = split_frames[split][set_name]
 				arr = frame.to_numpy()
-				
 				split_arrs[split][set_name] = arr
+				del frame # prevent memory usage doubling.
 
 		return split_arrs
 
