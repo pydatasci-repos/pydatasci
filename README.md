@@ -118,47 +118,62 @@ Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/
 
 #### Pandas & NumPy
 ```python
+# Implicit IDs
 df = dataset.to_pandas()
 df.head()
 
 arr = dataset.to_numpy()
 arr[:4]
 
-
-```
-
-```python
+# Explicit IDs
 df = aidb.Dataset.to_pandas(id=1)
 df.head()
 
 arr = aidb.Dataset.to_numpy(id=1)
 arr[:4]
 ```
-> We chose structured array because it keeps track of column names. For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
+
+> For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
 ## 2. Create a `Label` if you want to perform *supervised learning* (aka predict a specific column).
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
 ```python
+# Implicit IDs
+label = dataset.make_label(column_name="species")
+
+# Explicit IDs
 label = aidb.Label.from_dataset(
 	dataset_id = 1
 	,column_name = 'species'
 )
 ```
 
+Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
+
+
 ## 3. Derive a `Featureset` of columns from a Dataset.
 
-This won't duplicate your data. It simply records the `columns` to be used in training.
+Creating Featuresets won't duplicate your data. It simply records the `columns` to be used in training.
+
+- If you leave `columns=None` it will default to all available columns in the dataset.
+- If you specify a Label by either `label_name` or `label_id`, then it will skip the Label column.
 
 #### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
 ```python
-supervised_bruteforce = aidb.Featureset.create_all_columns(  <----- update
+# Implicit IDs
+# ToDo UPDATE WITH LABEL_NAME
+supervised_bruteforce = dataset.make_featureset()
+supervised_selective = dataset.make_featureset(columns=['petal_width','petal_length'])
+
+# Explicit IDs
+# ToDo UPDATE WITH LABEL_NAME
+supervised_bruteforce = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	,label_id = 1
 )
-
 supervised_selective = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	,label_id = 1
@@ -166,15 +181,21 @@ supervised_selective = aidb.Featureset.from_dataset(
 )
 ```
 
+Read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
+
 #### b) For *unsupervised learning* (aka studying variance within a `Dataset`), leave the `Label` blank.
 
 Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
 ```python
-unsupervised_bruteforce = aidb.Featureset.create_all_columns( <----- update
+# Implicit IDs
+unsupervised_bruteforce = dataset.make_featureset()
+unsupervised_selective = dataset.make_featureset(columns=['petal_width','petal_width','sepal_length'])
+
+# Explict IDs
+unsupervised_bruteforce = aidb.Featureset.from_dataset( <----- update
 	dataset_id = 1
 )
-
 unsupervised_selective = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	,columns = ['petal_width', 'petal_width', 'sepal_length']
@@ -184,13 +205,45 @@ unsupervised_selective = aidb.Featureset.from_dataset(
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
 
-#### a) One set containing **train-test** splits.
+- If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
+- You cannot specify `size_validation` without also specifying `size_test`.
 
-#### b) One set containing **train-validate-test** splits.
+#### a) **train-test** and **train-validate-test** splits.
+```python
+# Implicit
+# ToDo Label by name
+splitset_train75_test25 = featureset.make_splitset()
+splitset_train70_test30 = featureset.make_splitset(size_test=0.30)
+splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_validation=0.12)
+```
 
-#### c) k-fold sets containing **train-test** splits.
+Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. This will return a `dict`.
+```python
+>>> splitset_train68_val12_test20.to_numpy()
+{
+	'train': {
+		'features': <df or arr>,
+		'labels': 	<df or arr>
+	},
+	'validation': {
+		'features': <df or arr>,
+		'labels': 	<df or arr>
+	}	
+	'test': {
+		'features': <df or arr>,
+		'labels': 	<df or arr>
+	}
+}
 
-#### d) k-fold sets containing **train-validate-test** splits.
+>>> splitset_train75_test25.sizes
+{
+	'train': 		{'percent': 0.68, 	'count': 102}
+	'validation': 	{'percent': 0.12, 	'count': 18}, 
+	'test': 		{'percent': 0.2, 	'count': 30}, 
+}
+```
+
+#### b) k-fold sets containing **train-validate-test** splits.
 
 
 ## 5. Create an `Algorithm` aka model to fit to your splits.
