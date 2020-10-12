@@ -209,13 +209,17 @@ Split the `Dataset` rows into `Splitsets` based on how you want to train, valida
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 
 ```python
+# ToDo Label by name
+
 # Implicit
 splitset_train75_test25 = featureset.make_splitset()
 
 splitset_train70_test30 = featureset.make_splitset(size_test=0.30)
 
-splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_validation=0.12)
-# ToDo Label by name
+splitset_train68_val12_test20 = featureset.make_splitset(
+	size_test = 0.20
+	, size_validation = 0.12
+)
 ```
 
 > Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
@@ -247,15 +251,15 @@ Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: 
 {
 	'train': {
 		'features': <df or arr>,
-		'labels': 	<df or arr>
+		'labels': <df or arr>
 	},
 	'validation': {
 		'features': <df or arr>,
-		'labels': 	<df or arr>
+		'labels': <df or arr>
 	}	
 	'test': {
 		'features': <df or arr>,
-		'labels': 	<df or arr>
+		'labels': <df or arr>
 	}
 }
 ```
