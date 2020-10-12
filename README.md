@@ -10,7 +10,11 @@ PyDataSci's **_aidb_** is an open source, autoML tool that keeps track of the mo
 pip install pydatasci
 
 import pydatasci as pds
+pds.create_folder()
+pds.create_config()
+
 from pydatasci import aidb
+aidb.create_db()
 ```
 
 ## Mission

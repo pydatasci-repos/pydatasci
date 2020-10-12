@@ -456,15 +456,15 @@ class Featureset(BaseModel):
 
 	def make_splitset(
 		id:int
-		,size_test:float = None
-		,size_validation:float = None
-		,fold_count:int = 1 #Future: folds
+		, label_name:str = None
+		, size_test:float = None
+		, size_validation:float = None
 	):
 		s = Splitset.from_featureset(
 			featureset_id = id
-			,size_test = size_test
-			,size_validation = size_validation
-			,fold_count = 1 #Future: folds
+			, label_name = label_name
+			, size_test = size_test
+			, size_validation = size_validation
 		)
 		return s
 
@@ -480,6 +480,7 @@ class Splitset(BaseModel):
 	"""
 	samples = JSONField()
 	sizes = JSONField()
+	supervision = CharField()
 	is_validated = BooleanField()
 	is_folded = BooleanField()
 	fold_count = IntegerField() #Future: folds # validate too many folds? try setting between 3-10 depending on the size of your data.
@@ -490,7 +491,7 @@ class Splitset(BaseModel):
 
 	def from_featureset(
 		featureset_id:int
-		, label_name:str = None # has to come from same dataset
+		, label_name:str = None
 		, size_test:float = None
 		, size_validation:float = None
 		, fold_count:int = 1
@@ -524,7 +525,8 @@ class Splitset(BaseModel):
 		f_cols = f.columns
 
 		# Feature data to be split.
-		d_id = f.dataset.id
+		d = f.dataset
+		d_id = d.id
 		arr_f = Dataset.to_numpy(id=d_id, columns=f_cols)
 
 		"""
@@ -537,9 +539,9 @@ class Splitset(BaseModel):
 		samples = {}
 		sizes = {}
 
-		
 		if label_name is None:
-			# Unsupervised - all samples are put into training set.
+			supervision = "unsupervised"
+			l = None
 			if (size_test is not None) or (size_validation is not None):
 				raise ValueError("\nYikes - Unsupervised Featuresets support neither test nor validation splits.\nSet both `size_test` and `size_validation` as `None` for this Featureset.\n")
 			else:
@@ -547,8 +549,8 @@ class Splitset(BaseModel):
 				samples["train"] = indices_lst_train
 				sizes["train"] = {"percent": 1.00, "count": row_count}
 		else:
-			# Supervised
-			l = fetch_label_by_name(id=d_id, label_name=label_name)
+			supervision = "supervised"
+			l = d.fetch_label_by_name(label_name=label_name)
 			if size_test is None:
 				size_test = 0.25
 
@@ -592,13 +594,13 @@ class Splitset(BaseModel):
 
 		s = Splitset.create(
 			featureset = f
-			,label = l
-			,samples = samples
-			,sizes = sizes
-			#,supervision = 
-			,is_validated = is_validated
-			,is_folded = is_folded
-			,fold_count = fold_count
+			, label = l
+			, samples = samples
+			, sizes = sizes
+			, supervision = supervision
+			, is_validated = is_validated
+			, is_folded = is_folded
+			, fold_count = fold_count
 		)
 		return s
 
@@ -612,12 +614,12 @@ class Splitset(BaseModel):
 		else:
 			splits = list(s.samples.keys())
 
+		supervision = s.supervision
 		f = s.featureset
-		f_supervision = f.supervision
 
 		split_frames = {}
 		
-		if f_supervision == "unsupervised":
+		if supervision == "unsupervised":
 			set_dct = {"features": None}
 		else:
 			set_dct = {"features": None, "labels": None}
@@ -632,8 +634,8 @@ class Splitset(BaseModel):
 			ff = f.to_pandas(samples=samples)
 			split_frames[split_name]["features"] = ff
 
-			if f_supervision == "supervised": # EDIT ME
-				l = f.label
+			if supervision == "supervised":
+				l = s.label
 				lf = l.to_pandas(samples=samples)
 				split_frames[split_name]["labels"] = lf
 		return split_frames
