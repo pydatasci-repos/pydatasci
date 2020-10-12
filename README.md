@@ -156,18 +156,18 @@ From a Dataset, pick a column that you want to train against/ predict. If you ar
 
 ```python
 # Implicit IDs
-label = dataset.make_label(column_name="species")
+label = dataset.make_label(column_name='species')
 
 # Explicit IDs
 label = aidb.Label.from_dataset(
 	dataset_id = 1
-	,column_name = 'species'
+	, column = 'species'
 )
 
 label_col = label.column
 ```
 
-Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
+Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
 
 
 ### 3. Select `Featureset` columns.
@@ -184,7 +184,7 @@ featureset = dataset.make_featureset(exclude_columns=[label_col])
 featureset = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	, include_columns = None
-	, exclude_columns = ["target"]
+	, exclude_columns = ['species']
 )
 
 >>> featureset.columns
@@ -194,10 +194,10 @@ featureset = aidb.Featureset.from_dataset(
  'petal width (cm)']
 
 >>> featureset.columns_excluded
-['target']
+['species']
 ```
 
-Again, read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
+Again, read a Featureset into memory with `to_pandas()` and `to_numpy()` methods.
 
 > The `include_columns` and `exclude_columns` parameters are provided to expedite column extraction:
 > - If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
@@ -213,17 +213,21 @@ Split the `Dataset` rows into `Splitsets` based on how you want to train, valida
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 
 ```python
-# ToDo Label by name
-
 # Implicit
-splitset_train75_test25 = featureset.make_splitset()
+splitset_train75_test25 = featureset.make_splitset(label_name='species')
 
-splitset_train70_test30 = featureset.make_splitset(size_test=0.30)
+splitset_train70_test30 = featureset.make_splitset(
+	label_name = 'species'
+	, size_test = 0.30
+)
 
 splitset_train68_val12_test20 = featureset.make_splitset(
-	size_test = 0.20
+	label_name='species'
+	, size_test = 0.20
 	, size_validation = 0.12
 )
+
+splitset_train100 = featureset.make_splitset()
 ```
 
 > Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
@@ -232,7 +236,7 @@ splitset_train68_val12_test20 = featureset.make_splitset(
 > - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
 > - You cannot specify `size_validation` without also specifying `size_test`.
 
-Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this will return a `dict` of data frames/ arrays.
+Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. Note: this will return a `dict` of either data frames or arrays.
 
 ```python
 >>> splitset_train68_val12_test20.sizes

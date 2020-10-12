@@ -196,8 +196,8 @@ class Dataset(BaseModel):
 
 	def to_pandas(
 		id:int
-		,columns:list = None
-		,samples:list = None
+		, columns:list = None
+		, samples:list = None
 	):
 		"""
 		- After unzipping `gzip.open()`, bytesio still needed to be read into PyArrow before being read into Pandas.
@@ -550,6 +550,7 @@ class Splitset(BaseModel):
 				sizes["train"] = {"percent": 1.00, "count": row_count}
 		else:
 			supervision = "supervised"
+			# Splits generate different samples each time, so we do not need to prevent duplicates on the same label_name.
 			l = d.fetch_label_by_name(label_name=label_name)
 			if size_test is None:
 				size_test = 0.25
@@ -610,7 +611,7 @@ class Splitset(BaseModel):
 
 		if splits is not None:
 			if len(splits) == 0:
-				raise ValueError("Yikes - `splits:list` is an empty list.\nIt can be None, which defaults to all splits, but it can't not empty.")
+				raise ValueError("\nYikes - `splits:list` is an empty list.\nIt can be None, which defaults to all splits, but it can't not empty.\n")
 		else:
 			splits = list(s.samples.keys())
 
@@ -618,25 +619,22 @@ class Splitset(BaseModel):
 		f = s.featureset
 
 		split_frames = {}
-		
-		if supervision == "unsupervised":
-			set_dct = {"features": None}
-		else:
-			set_dct = {"features": None, "labels": None}
 
 		# Flag:Optimize (switch to generators for memory usage)
 		# split_names = train, test, validation
 		for split_name in splits:
-			split_frames[split_name] = set_dct
-
-			samples = s.samples[split_name]
-
-			ff = f.to_pandas(samples=samples)
+			
+			# placeholder for the frames/arrays
+			split_frames[split_name] = {}
+			
+			# fetch the sample indices for the split
+			split_samples = s.samples[split_name]
+			ff = f.to_pandas(samples=split_samples)
 			split_frames[split_name]["features"] = ff
 
 			if supervision == "supervised":
 				l = s.label
-				lf = l.to_pandas(samples=samples)
+				lf = l.to_pandas(samples=split_samples)
 				split_frames[split_name]["labels"] = lf
 		return split_frames
 
