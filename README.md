@@ -128,7 +128,7 @@ dataset = aidb.Dataset.from_file(
 
 > You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
 
-> `dtype`, as seen in `pandas.DataFrame.astype(dtype)`, can be specified as either a single type for all columns, or a specific type for each column.
+> Optionally, `dtype`, as seen in [`pandas.DataFrame.astype(dtype)`](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.astype.html), can be specified as either a single type for all columns, or as a dict that maps a specific type to each column name. This encodes features for analysis.
 
 #### Fetch a `Dataset`.
 
