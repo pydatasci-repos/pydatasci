@@ -148,6 +148,8 @@ label = aidb.Label.from_dataset(
 	dataset_id = 1
 	,column_name = 'species'
 )
+
+label_col = label.column
 ```
 
 Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
@@ -155,29 +157,26 @@ Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
 
 ## 3. Derive a `Featureset` of columns from a Dataset.
 
-Creating Featuresets won't duplicate your data. It simply records the `columns` to be used in training.
+Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. The `include_columns` and `exclude_columns` parameters are provided for rapid splitting of data:
 
-- If you leave `columns=None` it will default to all available columns in the dataset.
-- If you specify a Label by either `label_name` or `label_id`, then it will skip the Label column.
+- If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
+- If `exclude_columns=[...]` is specified, then all other columns will be included.
+- If `include_columns=[...]` is specified, then all other columns will be excluded. 
+- Remember, these parameters accept *[lists]*, not raw *strings*.
+
+Here, I'll just exclude a Label column in preparation for *supervised learning*. 
 
 #### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
 
 ```python
 # Implicit IDs
-# ToDo UPDATE WITH LABEL_NAME
-supervised_bruteforce = dataset.make_featureset()
-supervised_selective = dataset.make_featureset(columns=['petal_width','petal_length'])
+featureset = dataset.make_featureset(exclude_columns=[label_col])
 
 # Explicit IDs
-# ToDo UPDATE WITH LABEL_NAME
-supervised_bruteforce = aidb.Featureset.from_dataset(
+featureset = aidb.Featureset.from_dataset(
 	dataset_id = 1
-	,label_id = 1
-)
-supervised_selective = aidb.Featureset.from_dataset(
-	dataset_id = 1
-	,label_id = 1
-	,columns = ['petal_width', 'petal_length']
+	, include_columns = None
+	, exclude_columns = ["target"]
 )
 ```
 
@@ -187,20 +186,6 @@ Read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
 
 Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
 
-```python
-# Implicit IDs
-unsupervised_bruteforce = dataset.make_featureset()
-unsupervised_selective = dataset.make_featureset(columns=['petal_width','petal_width','sepal_length'])
-
-# Explict IDs
-unsupervised_bruteforce = aidb.Featureset.from_dataset( <----- update
-	dataset_id = 1
-)
-unsupervised_selective = aidb.Featureset.from_dataset(
-	dataset_id = 1
-	,columns = ['petal_width', 'petal_width', 'sepal_length']
-)
-```
 
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.

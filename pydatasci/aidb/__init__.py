@@ -291,19 +291,14 @@ class Dataset(BaseModel):
 
 	def make_featureset(
 		id:int
-		, label_id:str=None
-		, label_name:str=None
-		, columns:list=None
+		, include_columns:list = None
+		, exclude_columns:list = None
 	):
-		# Default to fetching label_id by `Label.column` name if specified.
-		if label_name is not None:
-			matching_label = Dataset.fetch_label_by_name(id=id, label_name=label_name)
-			label_id = matching_label.id
 
 		f = Featureset.from_dataset(
 			dataset_id = id
-			, label_id = label_id
-			, columns = columns
+			, include_columns = include_columns
+			, exclude_columns = exclude_columns
 			#Future: runPCA, correlationmatrix, feature_importance
 		)
 		return f
@@ -323,7 +318,7 @@ class Label(BaseModel):
 		d_labels = d.labels
 		d_labels_col = [l.column for l in d_labels]
 		if column in d_labels_col:
-			raise ValueError("\nYikes - This dataset already has a Label with target column named '" + column + "'.\nCannot create duplicate Label.\n")
+			raise ValueError("\nYikes - This Dataset already has a Label with target column named '" + column + "'.\nCannot create duplicate Label.\n")
 
 		# verify that the column exists
 		d_columns = d.columns
@@ -423,14 +418,14 @@ class Featureset(BaseModel):
 		count = d_featuresets.count()
 		if count > 0:
 			for f in d_featuresets:
-				f_id = f.id
+				f_id = str(f.id)
 				f_cols = f.columns_excluded
 				if f_cols is not None:
 					f_cols_alpha = sorted(f_cols)
 				else:
 					f_cols_alpha = None
 				if cols_aplha == f_cols_alpha:
-					raise ValueError("\nYikes - This Dataset already has Featureset <id: " + f_id + "> with the same columns.\nCannot create duplicate.\n")
+					raise ValueError("\nYikes - This Dataset already has Featureset <id:" + f_id + "> with the same columns.\nCannot create duplicate.\n")
 
 		f = Featureset.create(
 			dataset = d
