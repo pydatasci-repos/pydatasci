@@ -2,8 +2,16 @@
 
 ---
 
+# TLDR
+```
+pip install pydatasci
+
+import pydatasci as pds
+from pydatasci import aidb
+```
+
 # Value Proposition
-PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
+PyDataSci's **_aidb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
 
 # Mission
 * **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, sample, split, fold, parameter, run, model, and result - is automtically persisted in a lightweight, file-based database that is setup when you import the package. So hypertune to your heart's content, visually compare models, and know you've found the best one with the proof to back it up.<br /><br />
@@ -14,20 +22,23 @@ PyDataSci's **_AIdb_** is an open source, autoML tool that keeps track of the mo
 
 * **Scale-Em-If-You-Gottem**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
 
-# Painpoint Solved
-At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really show record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. "Fuckkk," I said out loud, "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it.
-
-I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the programming was too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
 
 # Functionality
 - Compress a dataset (csv, tsv, parquet) to be analyzed.
+- Split your samples while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
 - Derive informative featuresets from that dataset using supervised and unsupervised methods.
-- Split your samples while treat validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
 - Queue hypertuning jobs and batches based on hyperparameter combinations.
 - Evaluate and save the performance metrics of each model.
 - Visually compare models to find the best one.
 - Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
+
+
+# Painpoint Solved
+At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really show record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. "Fuckkk," I said out loud, "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it.
+
+I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the programming was too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
+
 
 # Community
 *Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks.
