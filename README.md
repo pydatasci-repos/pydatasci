@@ -193,13 +193,13 @@ featureset = aidb.Featureset.from_dataset(
 ['target']
 ```
 
+Again, read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
+
 > The `include_columns` and `exclude_columns` parameters are provided to expedite column extraction:
 > - If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
 > - If `exclude_columns=[...]` is specified, then all other columns will be included.
 > - If `include_columns=[...]` is specified, then all other columns will be excluded. 
 > - Remember, these parameters accept *[lists]*, not raw *strings*.
-
-Read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
 
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
@@ -216,14 +216,25 @@ splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_val
 # ToDo Label by name
 ```
 
-> Label-based stratification is used to ensure equally distributed label classes for both categorical and numerical data.
+Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this will return a `dict` of data frames/ arrays.
 
-> The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
-> - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
-> - You cannot specify `size_validation` without also specifying `size_test`.
-
-Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this will return a `dict` of data frames/ arrays.
 ```python
+>>> splitset_train68_val12_test20.sizes
+{
+	'train': {
+		'percent': 0.68, 	
+		'count': 102
+	},
+	'validation': {
+		'percent': 0.12,
+		'count': 18
+	}, 
+	'test':	{
+		'percent': 0.2, 	
+		'count': 30
+	}
+}
+
 >>> splitset_train68_val12_test20.to_numpy()
 {
 	'train': {
@@ -239,14 +250,13 @@ Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this wi
 		'labels': 	<df or arr>
 	}
 }
-
->>> splitset_train75_test25.sizes
-{
-	'train': 		{'percent': 0.68, 	'count': 102}
-	'validation': 	{'percent': 0.12, 	'count': 18}, 
-	'test': 		{'percent': 0.2, 	'count': 30}, 
-}
 ```
+
+> Label-based stratification is used to ensure equally distributed label classes for both categorical and numerical data.
+
+> The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
+> - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
+> - You cannot specify `size_validation` without also specifying `size_test`.
 
 
 ## 5. Create an `Algorithm` aka model to fit to your splits.
