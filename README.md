@@ -235,32 +235,30 @@ Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: 
 {
 	'train': {
 		'percent': 0.68, 	
-		'count': 102
-	},
+		'count': 102},
+
 	'validation': {
 		'percent': 0.12,
-		'count': 18
-	}, 
+		'count': 18}, 
+
 	'test':	{
 		'percent': 0.2, 	
-		'count': 30
-	}
+		'count': 30}
 }
 
 >>> splitset_train68_val12_test20.to_numpy()
 {
 	'train': {
 		'features': <df or arr>,
-		'labels': <df or arr>
-	},
+		'labels': <df or arr>},
+
 	'validation': {
 		'features': <df or arr>,
-		'labels': <df or arr>
-	}	
+		'labels': <df or arr>},
+		
 	'test': {
 		'features': <df or arr>,
-		'labels': <df or arr>
-	}
+		'labels': <df or arr>}
 }
 ```
 

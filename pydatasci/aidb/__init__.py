@@ -490,9 +490,10 @@ class Splitset(BaseModel):
 
 	def from_featureset(
 		featureset_id:int
-		,size_test:float = None
-		,size_validation:float = None
-		,fold_count:int = 1
+		, label_name:str = None # has to come from same dataset
+		, size_test:float = None
+		, size_validation:float = None
+		, fold_count:int = 1
 	):
 
 		if size_test is not None:
@@ -536,9 +537,9 @@ class Splitset(BaseModel):
 		samples = {}
 		sizes = {}
 
-		l = f.label
-		if l is None:
-			# Unsupervised
+		
+		if label_name is None:
+			# Unsupervised - all samples are put into training set.
 			if (size_test is not None) or (size_validation is not None):
 				raise ValueError("\nYikes - Unsupervised Featuresets support neither test nor validation splits.\nSet both `size_test` and `size_validation` as `None` for this Featureset.\n")
 			else:
@@ -547,6 +548,7 @@ class Splitset(BaseModel):
 				sizes["train"] = {"percent": 1.00, "count": row_count}
 		else:
 			# Supervised
+			l = fetch_label_by_name(id=d_id, label_name=label_name)
 			if size_test is None:
 				size_test = 0.25
 
@@ -593,6 +595,7 @@ class Splitset(BaseModel):
 			,label = l
 			,samples = samples
 			,sizes = sizes
+			#,supervision = 
 			,is_validated = is_validated
 			,is_folded = is_folded
 			,fold_count = fold_count
@@ -629,7 +632,7 @@ class Splitset(BaseModel):
 			ff = f.to_pandas(samples=samples)
 			split_frames[split_name]["features"] = ff
 
-			if f_supervision == "supervised":
+			if f_supervision == "supervised": # EDIT ME
 				l = f.label
 				lf = l.to_pandas(samples=samples)
 				split_frames[split_name]["labels"] = lf
