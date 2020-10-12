@@ -108,9 +108,7 @@ from pydatasci import aidb
 
 ### 2. Add a `Dataset`.
 
-Supported tabular file formats include: CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point, the project's support for Parquet is extremely minimal.
-
-The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
+Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point, the project's support for Parquet is extremely minimal.
 
 ```python
 dataset = aidb.Dataset.from_file(
@@ -121,11 +119,13 @@ dataset = aidb.Dataset.from_file(
 )
 ```
 
+> The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
+
 > You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
 
 #### Fetch a `Dataset`.
 
-Supported in-memory formats include: [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
+Supported in-memory formats include [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
 
 #### Pandas & NumPy
 ```python
@@ -168,16 +168,9 @@ Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
 
 ## 3. Derive a `Featureset` of columns from a Dataset.
 
-Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. The `include_columns` and `exclude_columns` parameters are provided for rapid splitting of data:
+Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
-- If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
-- If `exclude_columns=[...]` is specified, then all other columns will be included.
-- If `include_columns=[...]` is specified, then all other columns will be excluded. 
-- Remember, these parameters accept *[lists]*, not raw *strings*.
-
-Here, I'll just exclude a Label column in preparation for *supervised learning*. 
-
-#### a) For *supervised learning*, be sure to pass in the `Label` you want to predict.
+Here, I'll just exclude a Label column in preparation for supervised learning. 
 
 ```python
 # Implicit IDs
@@ -189,31 +182,47 @@ featureset = aidb.Featureset.from_dataset(
 	, include_columns = None
 	, exclude_columns = ["target"]
 )
+
+>>> featureset.columns
+['sepal length (cm)',
+ 'sepal width (cm)',
+ 'petal length (cm)',
+ 'petal width (cm)']
+
+>>> featureset.columns_excluded
+['target']
 ```
 
+> The `include_columns` and `exclude_columns` parameters are provided to expedite column extraction:
+- If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
+- If `exclude_columns=[...]` is specified, then all other columns will be included.
+- If `include_columns=[...]` is specified, then all other columns will be excluded. 
+- Remember, these parameters accept *[lists]*, not raw *strings*.
+
 Read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
-
-#### b) For *unsupervised learning* (aka studying variance within a `Dataset`), leave the `Label` blank.
-
-Feature selection is about finding out which columns in your data are most informative. In performing feature engineering, a data scientist reduces the dimensionality of the data by determining the effect each feature has on the variance of the data. This makes for simpler models in the form of faster training and reduces overfitting by making the model more generalizable to future data.
-
 
 
 ## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
 
+Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
+
+```python
+# Implicit
+splitset_train75_test25 = featureset.make_splitset()
+
+splitset_train70_test30 = featureset.make_splitset(size_test=0.30)
+
+splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_validation=0.12)
+# ToDo Label by name
+```
+
+> Label-based stratification is used to ensure equally distributed label classes for both categorical and numerical data.
+
+> The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
 - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
 - You cannot specify `size_validation` without also specifying `size_test`.
 
-#### a) **train-test** and **train-validate-test** splits.
-```python
-# Implicit
-# ToDo Label by name
-splitset_train75_test25 = featureset.make_splitset()
-splitset_train70_test30 = featureset.make_splitset(size_test=0.30)
-splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_validation=0.12)
-```
-
-Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. This will return a `dict`.
+Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this will return a `dict` of data frames/ arrays.
 ```python
 >>> splitset_train68_val12_test20.to_numpy()
 {
