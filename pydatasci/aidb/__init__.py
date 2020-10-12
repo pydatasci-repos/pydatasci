@@ -365,78 +365,77 @@ class Featureset(BaseModel):
 	  http://docs.peewee-orm.com/en/latest/peewee/api.html?highlight=deferredforeign#DeferredForeignKey
 	- PCA components vary across featuresets. When different columns are used those columns have different component values.
 	"""
-	supervision = CharField() #supervised, unsupervised
 	columns = JSONField()
-	contains_all_columns = BooleanField()
+	columns_excluded = JSONField(null=True)
 	dataset = ForeignKeyField(Dataset, backref='featuresets')
-	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='featuresets')
 
 
 	def from_dataset(
 		dataset_id:int
-		,label_id:int=None # triggers `supervision = unsupervised`.
-		,columns:list=None # triggers use of all available columns either including or excluding label.
+		,include_columns:list=None
+		,exclude_columns:list=None
 		#Future: runPCA #,run_pca:boolean=False # triggers PCA analysis of all columns
 	):
+
 		d = Dataset.get_by_id(dataset_id)
 		d_cols = d.columns
 
-		# Check to see if user-provided columns exist
-		if columns is not None:
-			all_cols_found = all(col in d_cols for col in columns)
+		if (include_columns is not None) and (exclude_columns is not None):
+			raise ValueError("\nYikes - You can set either `include_columns` or `exclude_columns`, but not both.\n")
+
+		if (include_columns is not None):
+			# check columns exist
+			all_cols_found = all(col in d_cols for col in include_columns)
 			if not all_cols_found:
-				raise ValueError("Yikes - You specified `columns` that do not exist in the Dataset.")
+				raise ValueError("\nYikes - You specified `include_columns` that do not exist in the Dataset.\n")
+			# inclusion
+			columns = include_columns
+			# exclusion
+			columns_excluded = d_cols
+			for col in include_columns:
+				columns_excluded.remove(col)
 
-		if label_id is None:
-			supervision = "unsupervised"
-			l = None
-			if columns is None:
-				columns = d_cols
-				contains_all_columns = True
-			else:
-				# Check if user-provided columns contain all of the dataset columns.
-				all_d_cols_found = all(col in columns for col in d_cols)
-				if all_d_cols_found:
-					contains_all_columns = True
-				else:
-					contains_all_columns = False
+		elif (exclude_columns is not None):
+			all_cols_found = all(col in d_cols for col in exclude_columns)
+			if not all_cols_found:
+				raise ValueError("\nYikes - You specified `exclude_columns` that do not exist in the Dataset.\n")
+			# exclusion
+			columns_excluded = exclude_columns
+			# inclusion
+			columns = d_cols
+			for col in exclude_columns:
+				columns.remove(col)
+			if not columns:
+				raise ValueError("\nYikes - You cannot exclude every column in the Dataset.\n")
 		else:
-			supervision = "supervised"
-			l = Label.get_by_id(label_id)
+			columns = d_cols
+			columns_excluded = None
 
-			l_col = l.column
-			d_cols.remove(l_col)
-			
-			if columns is None:
-				columns = d_cols
-				contains_all_columns = True	
-			else:
-				contains_label = l_col in columns
-				if contains_label:
-					raise ValueError("\nYikes - Label column '" + l_col + "' found within Featureset columns provided.\nYou cannot include the Label column in a supervised Featureset.\n")
-
-				all_d_cols_found = all(col in columns for col in d_cols)
-				if all_d_cols_found:
-					contains_all_columns = True
-				else:
-					contains_all_columns = False
 		"""
-		Check for an exact duplicate of this featureset-to-label for this dataset.
-		It's this far down in the method due to handling of `columns=None`.
-		""" 
-		new_cols_alpha = sorted(columns)
-		d_fsets_cols = [f.columns for f in d.featuresets]
-		d_fsets_cols_alpha = [sorted(cols) for cols in d_fsets_cols]
-		bools_check_new_cols = [new_cols_alpha == cols for cols in d_fsets_cols_alpha]
-		if True in bools_check_new_cols:
-			raise ValueError("\nYikes - Based on the `columns` provided, this Featureset already exists for this Dataset.\n")
+		Check that this Dataset does not already have a Featureset that is exactly the same.
+		Less entries in `excluded_columns` so maybe it's faster to compare.
+		"""
+		if columns_excluded is not None:
+			cols_aplha = sorted(columns_excluded)
+		else:
+			cols_aplha = None
+		d_featuresets = d.featuresets
+		count = d_featuresets.count()
+		if count > 0:
+			for f in d_featuresets:
+				f_id = f.id
+				f_cols = f.columns_excluded
+				if f_cols is not None:
+					f_cols_alpha = sorted(f_cols)
+				else:
+					f_cols_alpha = None
+				if cols_aplha == f_cols_alpha:
+					raise ValueError("\nYikes - This Dataset already has Featureset <id: " + f_id + "> with the same columns.\nCannot create duplicate.\n")
 
 		f = Featureset.create(
 			dataset = d
-			,label = l
-			,columns = columns
-			,supervision = supervision
-			,contains_all_columns = contains_all_columns
+			, columns = columns
+			, columns_excluded = columns_excluded
 		)
 		return f
 
