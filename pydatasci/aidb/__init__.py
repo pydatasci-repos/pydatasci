@@ -121,7 +121,7 @@ class BaseModel(Model):
 class Dataset(BaseModel):
 	name = CharField()
 	data = BlobField()
-	category = CharField() #tabular, image, longitudinal
+	dtype = JSONField(null=True)
 	file_format = CharField()
 	is_compressed = BooleanField()
 	columns= JSONField()
@@ -129,9 +129,10 @@ class Dataset(BaseModel):
 
 	def from_file(
 		path:str
-		,file_format:str
-		,name:str = None
-		,perform_gzip:bool = True
+		, file_format:str
+		, name:str = None
+		, perform_gzip:bool = True
+		, dtype:dict = None
 	):
 		"""
 		- File is read in with pyarrow, converted to bytes, compressed by default, and stored as a SQLite blob field.
@@ -168,9 +169,6 @@ class Dataset(BaseModel):
 			elif file_format == 'parquet':
 				tbl = pq.read_table(path)
 
-			# Future: handle other formats like image.
-			category = 'tabular'
-
 			#ToDo - handle columns with no name.
 			columns = tbl.column_names
 
@@ -185,11 +183,11 @@ class Dataset(BaseModel):
 
 			d = Dataset.create(
 				name = name
-				,data = data
-				,file_format = file_format
-				,is_compressed = is_compressed
-				,columns = columns
-				,category = category
+				, data = data
+				, dtype = dtype
+				, file_format = file_format
+				, is_compressed = is_compressed
+				, columns = columns
 			)
 			return d
 
@@ -247,6 +245,14 @@ class Dataset(BaseModel):
 		if samples is not None:
 			df = df.iloc[samples]
 
+		d_dtype = d.dtype
+		if d_dtype is not None:
+			d_dtype_cols = list(d_dtype.keys())
+			for col in d_dtype_cols:
+				if col not in columns:
+					del d_dtype[col]
+			df = df.astype(d_dtype)
+
 		return df
 
 
@@ -282,10 +288,13 @@ class Dataset(BaseModel):
 
 	def fetch_label_by_name(id:int, label_name:str):
 		d = Dataset.get_by_id(id)
-		try:
-			matching_label = d.labels.select().where(Label.column==label_name)[0]
-		except:
-			raise ValueError("\nYikes - there is no Label with a `column` attribute named '" + label_name + "'\n")
+		matching_labels = d.labels.select().where(Label.column==label_name)
+		count_matches = matching_labels.count()
+		
+		if count_matches > 0:
+			matching_label = matching_labels[0]
+		else:
+			matching_label = None
 		return matching_label
 
 
@@ -552,6 +561,9 @@ class Splitset(BaseModel):
 			supervision = "supervised"
 			# Splits generate different samples each time, so we do not need to prevent duplicates on the same label_name.
 			l = d.fetch_label_by_name(label_name=label_name)
+			if l is None:
+				raise ValueError("\nYikes - there is no Label with a `column` attribute named '" + label_name + "'\n")
+
 			if size_test is None:
 				size_test = 0.25
 

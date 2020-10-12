@@ -117,15 +117,18 @@ Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/96
 ```python
 dataset = aidb.Dataset.from_file(
 	path = 'iris.tsv' 
-	,file_format = 'tsv'
-	,name = 'tab-separated plants'
-	,perform_gzip = True
+	, file_format = 'tsv'
+	, name = 'tab-separated plants'
+	, perform_gzip = True
+	, dtype = 'float64'
 )
 ```
 
 > The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
 
 > You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
+
+> `dtype`, as seen in `pandas.DataFrame.astype(dtype)`, can be specified as either a single type for all columns, or a specific type for each column.
 
 #### Fetch a `Dataset`.
 
@@ -156,13 +159,10 @@ From a Dataset, pick a column that you want to train against/ predict. If you ar
 
 ```python
 # Implicit IDs
-label = dataset.make_label(column_name='species')
+label = dataset.make_label(column='species')
 
 # Explicit IDs
-label = aidb.Label.from_dataset(
-	dataset_id = 1
-	, column = 'species'
-)
+label = aidb.Label.from_dataset(dataset_id=1, column='species')
 
 label_col = label.column
 ```
@@ -174,7 +174,7 @@ Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
 
 Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
-Here, we'll just exclude a Label column in preparation for supervised learning. 
+Here, we'll just exclude a Label column in preparation for supervised learning, but you can either exlcude or include any columns you see fit.
 
 ```python
 # Implicit IDs
@@ -213,7 +213,6 @@ Split the `Dataset` rows into `Splitsets` based on how you want to train, valida
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 
 ```python
-# Implicit
 splitset_train75_test25 = featureset.make_splitset(label_name='species')
 
 splitset_train70_test30 = featureset.make_splitset(
@@ -227,7 +226,7 @@ splitset_train68_val12_test20 = featureset.make_splitset(
 	, size_validation = 0.12
 )
 
-splitset_train100 = featureset.make_splitset()
+splitset_unsupervised = featureset.make_splitset()
 ```
 
 > Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
