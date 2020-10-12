@@ -106,7 +106,7 @@ import pydatasci as pds
 from pydatasci import aidb
 ```
 
-### 2. Add a `Dataset`.
+### 2. Add a `Dataset` file.
 
 Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point, the project's support for Parquet is extremely minimal.
 
@@ -146,7 +146,7 @@ arr[:4]
 
 > For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-## 2. Create a `Label`.
+## 2. Select a `Label` column.
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
@@ -166,7 +166,7 @@ label_col = label.column
 Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
 
 
-## 3. Derive a `Featureset` of columns from a Dataset.
+### 3. Select `Featureset` columns.
 
 Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
@@ -202,7 +202,9 @@ Again, read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
 > - Remember, these parameters accept *[lists]*, not raw *strings*.
 
 
-## 4. Split the `Dataset` rows into `Splitsets` based on how you want to train, test, and validate your models.
+## 4. Select `splits` of samples.
+
+Split the `Dataset` rows into `Splitsets` based on how you want to train, validate (optional), and test your models.
 
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 
@@ -252,7 +254,7 @@ Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: 
 }
 ```
 
-> Label-based stratification is used to ensure equally distributed label classes for both categorical and numerical data.
+> Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
 
 > The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
 > - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
