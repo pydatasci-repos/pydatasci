@@ -35,7 +35,7 @@ from pydatasci import aidb
 
 
 ## Painpoint Solved
-At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. "Fuckkk," I said out loud, "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it.
+At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. "Fuckkk," I said out loud, slamming head on the keyboard a few times, "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it.
 
 I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the integration processes were too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
 
@@ -146,7 +146,7 @@ arr[:4]
 
 > For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-## 2. Create a `Label` if you want to perform *supervised learning* (aka predict a specific column).
+## 2. Create a `Label`.
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
@@ -170,7 +170,7 @@ Read a Label into memory with `.to_pandas()` and `.to_numpy()`.
 
 Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
-Here, I'll just exclude a Label column in preparation for supervised learning. 
+Here, we'll just exclude a Label column in preparation for supervised learning. 
 
 ```python
 # Implicit IDs
@@ -194,10 +194,10 @@ featureset = aidb.Featureset.from_dataset(
 ```
 
 > The `include_columns` and `exclude_columns` parameters are provided to expedite column extraction:
-- If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
-- If `exclude_columns=[...]` is specified, then all other columns will be included.
-- If `include_columns=[...]` is specified, then all other columns will be excluded. 
-- Remember, these parameters accept *[lists]*, not raw *strings*.
+> - If both `include_columns=None` and `exclude_columns=None` then all columns in the Dataset will be used.
+> - If `exclude_columns=[...]` is specified, then all other columns will be included.
+> - If `include_columns=[...]` is specified, then all other columns will be excluded. 
+> - Remember, these parameters accept *[lists]*, not raw *strings*.
 
 Read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
 
@@ -219,8 +219,8 @@ splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_val
 > Label-based stratification is used to ensure equally distributed label classes for both categorical and numerical data.
 
 > The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
-- If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
-- You cannot specify `size_validation` without also specifying `size_test`.
+> - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
+> - You cannot specify `size_validation` without also specifying `size_test`.
 
 Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this will return a `dict` of data frames/ arrays.
 ```python
@@ -247,8 +247,6 @@ Read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this wi
 	'test': 		{'percent': 0.2, 	'count': 30}, 
 }
 ```
-
-#### b) k-fold sets containing **train-validate-test** splits.
 
 
 ## 5. Create an `Algorithm` aka model to fit to your splits.
