@@ -218,6 +218,12 @@ splitset_train68_val12_test20 = featureset.make_splitset(size_test=0.20,size_val
 # ToDo Label by name
 ```
 
+> Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
+
+> The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
+> - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
+> - You cannot specify `size_validation` without also specifying `size_test`.
+
 Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: this will return a `dict` of data frames/ arrays.
 
 ```python
@@ -253,12 +259,6 @@ Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: 
 	}
 }
 ```
-
-> Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
-
-> The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
-> - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
-> - You cannot specify `size_validation` without also specifying `size_test`.
 
 
 ### 5. Create an `Algorithm` aka model to fit to your splits.
