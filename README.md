@@ -249,16 +249,16 @@ Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: 
 >>> splitset_train68_val12_test20.to_numpy()
 {
 	'train': {
-		'features': <df or arr>,
-		'labels': <df or arr>},
+		'features': <ndarray>,
+		'labels': <ndarray>},
 
 	'validation': {
-		'features': <df or arr>,
-		'labels': <df or arr>},
-		
+		'features': <ndarray>,
+		'labels': <ndarray>},
+
 	'test': {
-		'features': <df or arr>,
-		'labels': <df or arr>}
+		'features': <ndarray>,
+		'labels': <ndarray>}
 }
 ```
 
