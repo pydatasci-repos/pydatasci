@@ -146,7 +146,7 @@ arr[:4]
 
 > For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-## 2. Select a `Label` column.
+### 2. Select a `Label` column.
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
@@ -202,7 +202,7 @@ Again, read a Featureset into memory with `.to_pandas()` and `.to_numpy()`.
 > - Remember, these parameters accept *[lists]*, not raw *strings*.
 
 
-## 4. Select `splits` of samples.
+### 4. Select `splits` of samples.
 
 Split the `Dataset` rows into `Splitsets` based on how you want to train, validate (optional), and test your models.
 
@@ -261,13 +261,13 @@ Again, read a Splitset into memory with `.to_pandas()` and `.to_numpy()`. Note: 
 > - You cannot specify `size_validation` without also specifying `size_test`.
 
 
-## 5. Create an `Algorithm` aka model to fit to your splits.
+### 5. Create an `Algorithm` aka model to fit to your splits.
 
 
-## 6. Create combinations of `Hyperparamsets` for your algorithms.
+### 6. Create combinations of `Hyperparamsets` for your algorithms.
 
 
-## 7. Create a `Batch` of `Job`'s to keep track of training.
+### 7. Create a `Batch` of `Job`'s to keep track of training.
 
 ---
 
