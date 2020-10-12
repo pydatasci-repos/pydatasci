@@ -2,6 +2,9 @@
 
 ---
 
+# Value Proposition
+PyDataSci's **_aidb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
+
 # TLDR
 ```
 pip install pydatasci
@@ -9,9 +12,6 @@ pip install pydatasci
 import pydatasci as pds
 from pydatasci import aidb
 ```
-
-# Value Proposition
-PyDataSci's **_aidb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
 
 # Mission
 * **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, sample, split, fold, parameter, run, model, and result - is automtically persisted in a lightweight, file-based database that is setup when you import the package. So hypertune to your heart's content, visually compare models, and know you've found the best one with the proof to back it up.<br /><br />
