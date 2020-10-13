@@ -117,7 +117,7 @@ Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/96
 ```python
 # From files
 dataset = aidb.Dataset.from_file(
-	path = 'iris.tsv' 
+	path = 'iris.tsv' # files must have column names as their first row
 	, file_format = 'tsv'
 	, name = 'tab-separated plants'
 	, perform_gzip = True
@@ -130,7 +130,7 @@ dataset = aidb.Dataset.from_pandas(
 	, file_format = 'csv'
 	, name = 'comma-separated plants'
 	, perform_gzip = True
-	, dtype = None #None infers from dataframe
+	, dtype = None # None infers from dataframe provided
 )
 
 dataset = aidb.Dataset.from_numpy(
@@ -138,8 +138,8 @@ dataset = aidb.Dataset.from_numpy(
 	, file_format = 'parquet'
 	, name = 'chunking plants'
 	, perform_gzip = True
-	, columns = None # fed to pd.Dataframe(columns)
-	, dtype = None #fed to pd.Dataframe(dtype)
+	, columns = None # feeds pd.Dataframe(columns)
+	, dtype = None # feeds pd.Dataframe(dtype)
 )
 ```
 

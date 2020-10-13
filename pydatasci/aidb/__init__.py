@@ -143,54 +143,48 @@ class Dataset(BaseModel):
 		- `name`: if none specified, then `path` string will be used.
 		- `perform_gzip`: Whether or not to perform gzip compression on the file. We have observed up to 90% compression rates during testing.
 		"""
-		
-		# create some files with no column names
-		# do some testing with sparse null column names...
-		# do some testing with all null column names...
-		accepted_formats = ['csv', 'tsv', 'parquet']
+		accepted_formats = ['csv', 'tsv', 'parquet', None]
 		if file_format not in accepted_formats:
-			print("Error - Accepted file formats include uncompressed csv, tsv, and parquet.")
-		else:
-			# Defaults.
-			if name is None:
-				name=path
-			if perform_gzip is None:
-				perform_gzip=True
+			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
 
-			#ToDo prevent ff combos like '.csv' with 'parquet' vice versa.
+		# Defaults.
+		if name is None:
+			name=path
+		if perform_gzip is None:
+			perform_gzip=True
 
-			# File formats.
-			if (file_format == 'tsv') or (file_format is None):
-				parse_opt = pc.ParseOptions(delimiter='\t')
-				tbl = pc.read_csv(path, parse_options=parse_opt)
-				file_format = 'tsv'
-			elif (file_format == 'csv'):
-				parse_opt = pc.ParseOptions(delimiter=',')
-				tbl = pc.read_csv(path)
-			elif (file_format == 'parquet'):
-				tbl = pq.read_table(path)
+		# File formats.
+		if (file_format == 'tsv') or (file_format is None):
+			parse_opt = pc.ParseOptions(delimiter='\t')
+			tbl = pc.read_csv(path, parse_options=parse_opt)
+			file_format = 'tsv'
+		elif (file_format == 'csv'):
+			parse_opt = pc.ParseOptions(delimiter=',')
+			tbl = pc.read_csv(path)
+		elif (file_format == 'parquet'):
+			tbl = pq.read_table(path)
 
-			#ToDo - handle columns with no name.
-			columns = tbl.column_names
+		#ToDo - handle columns with no name.
+		columns = tbl.column_names
 
-			with open(path, "rb") as f:
-				bytesio = io.BytesIO(f.read())
-				data = bytesio.getvalue()
-				if perform_gzip:
-					data = gzip.compress(data)
-					is_compressed=True
-				else:
-					is_compressed=False
+		with open(path, "rb") as f:
+			bytesio = io.BytesIO(f.read())
+			data = bytesio.getvalue()
+			if perform_gzip:
+				data = gzip.compress(data)
+				is_compressed=True
+			else:
+				is_compressed=False
 
-			d = Dataset.create(
-				name = name
-				, data = data
-				, dtype = dtype
-				, file_format = file_format
-				, is_compressed = is_compressed
-				, columns = columns
-			)
-			return d
+		d = Dataset.create(
+			name = name
+			, data = data
+			, dtype = dtype
+			, file_format = file_format
+			, is_compressed = is_compressed
+			, columns = columns
+		)
+		return d
 
 
 	def from_pandas(
@@ -199,19 +193,23 @@ class Dataset(BaseModel):
 		, file_format:str = None
 		, perform_gzip:bool = True
 		, dtype:dict = None
+		, columns:list = None
 	):
+		if dataframe.empty:
+			raise ValueError("\nYikes - The dataframe you provided is empty according to `df.empty`")
+
+		accepted_formats = ['csv', 'tsv', 'parquet', None]
+		if file_format not in accepted_formats:
+			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+
 		if dtype is None:
 			dct_types = dataframe.dtypes.to_dict()
 			# convert the `dtype('float64')` to strings
 			keys_values = dct_types.items()
 			dtype = {k: str(v) for k, v in keys_values}
 		
-		cols_raw = dataframe.columns.to_list()
-		# in case the columns were a range of ints.
-		cols_str = [str(i) for i in cols_raw]
-		cols_dct = dict(zip(cols_raw, cols_str))
-		dataframe = dataframe.rename(columns=cols_dct)
-		columns = dataframe.columns.to_list()
+		# need to pass it user-defined columns in case they are specified
+		dataframe, columns = Dataset.pandas_stringify_columns(df=dataframe, columns=columns)
 
 		# https://stackoverflow.com/a/25632711
 		buff = io.StringIO()
@@ -257,6 +255,10 @@ class Dataset(BaseModel):
 		, columns:list = None #pd.Dataframe param
 		, dtype:str = None #pd.Dataframe param
 	):
+		accepted_formats = ['csv', 'tsv', 'parquet', None]
+		if file_format not in accepted_formats:
+			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+
 		# check if it is an ndarray as opposed to structuredArray
 		if (ndarray.dtype.names is None):
 			if False in np.isnan(ndarray[0]):
@@ -363,8 +365,7 @@ class Dataset(BaseModel):
 		,samples:list = None
 	):
 		d = Dataset.get_by_id(id)
-		dtype = d.dtype
-
+		# dtype is applied within `to_pandas()` function.
 		df = Dataset.to_pandas(id=id, columns=columns, samples=samples)
 		arr = df.to_numpy()
 		return arr
@@ -404,6 +405,21 @@ class Dataset(BaseModel):
 			#Future: runPCA, correlationmatrix, feature_importance
 		)
 		return f
+
+	def pandas_stringify_columns(df, columns):
+		cols_raw = df.columns.to_list()
+		if columns is None:
+			# in case the columns were a range of ints.
+			cols_str = [str(c) for c in cols_raw]
+		else:
+			cols_str = columns
+		# dict from 2 lists
+		cols_dct = dict(zip(cols_raw, cols_str))
+		
+		df = df.rename(columns=cols_dct)
+		columns = df.columns.to_list()
+		
+		return df, columns
 
 
 
