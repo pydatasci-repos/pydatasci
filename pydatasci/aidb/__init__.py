@@ -193,7 +193,7 @@ class Dataset(BaseModel):
 		, file_format:str = None
 		, perform_gzip:bool = True
 		, dtype:dict = None
-		, columns:list = None
+		, rename_columns:list = None
 	):
 		if dataframe.empty:
 			raise ValueError("\nYikes - The dataframe you provided is empty according to `df.empty`")
@@ -208,8 +208,8 @@ class Dataset(BaseModel):
 			keys_values = dct_types.items()
 			dtype = {k: str(v) for k, v in keys_values}
 		
-		# need to pass it user-defined columns in case they are specified
-		dataframe, columns = Dataset.pandas_stringify_columns(df=dataframe, columns=columns)
+		# Passes in user-defined columns in case they are specified
+		dataframe, columns = Dataset.pandas_stringify_columns(df=dataframe, columns=rename_columns)
 
 		# https://stackoverflow.com/a/25632711
 		buff = io.StringIO()
@@ -252,7 +252,7 @@ class Dataset(BaseModel):
 		, name:str = None
 		, file_format:str = None
 		, perform_gzip:bool = True
-		, columns:list = None #pd.Dataframe param
+		, column_names:list = None #pd.Dataframe param
 		, dtype:str = None #pd.Dataframe param
 	):
 		accepted_formats = ['csv', 'tsv', 'parquet', None]
@@ -268,15 +268,15 @@ class Dataset(BaseModel):
 				print("\nInfo - The entire first row of your array is 'nan', so we deleted this row during ingestion.\n")
 			
 			col_names = ndarray.dtype.names
-			if (col_names is None) and (columns is None):
+			if (col_names is None) and (column_names is None):
 				# generate string-based column names to feed to pandas
 				col_count = ndarray.shape[1]
-				columns = [str(i) for i in range(col_count)]
-				print("\nInfo - You didn't provide any column names for your array, so we generated them for you.\ncolumns: " + str(columns) + "\n" )
+				column_names = [str(i) for i in range(col_count)]
+				print("\nInfo - You didn't provide any column names for your array, so we generated them for you.\ncolumn_names: " + str(column_names) + "\n" )
 			
 		df = pd.DataFrame(
 			data = ndarray
-			, columns = columns
+			, columns = column_names
 			, dtype = dtype # pandas only accepts a single str. pandas infers if None.
 		)
 		del ndarray
@@ -684,18 +684,8 @@ class Splitset(BaseModel):
 			arr_l = Dataset.to_numpy(id=d_id, columns=[l_col])
 			arr_l_dtype = arr_l.dtype
 
-			def continuous_bins(array_to_bin, continuous_bin_count:int):
-				if continuous_bin_count is None:
-					continuous_bin_count = 4
-
-				max = np.amax(array_to_bin)
-				min = np.amin(array_to_bin)
-				bins = np.linspace(start=min, stop=max, num=continuous_bin_count)
-				flts_binned = np.digitize(array_to_bin, bins, right=True)
-				return flts_binned
-
 			if (arr_l_dtype == 'float32') or (arr_l_dtype == 'float64'):
-				stratify1 = continuous_bins(arr_l, continuous_bin_count)
+				stratify1 = Splitset.continuous_bins(arr_l, continuous_bin_count)
 			else:
 				stratify1 = arr_l
 
@@ -708,7 +698,7 @@ class Splitset(BaseModel):
 
 			if size_validation is not None:
 				if (arr_l_dtype == 'float32') or (arr_l_dtype == 'float64'):
-					stratify2 = continuous_bins(labels_train, continuous_bin_count)
+					stratify2 = Splitset.continuous_bins(labels_train, continuous_bin_count)
 				else:
 					stratify2 = labels_train
 
@@ -809,6 +799,17 @@ class Splitset(BaseModel):
 				del frame # prevent memory usage doubling.
 
 		return split_arrs
+
+
+	def continuous_bins(array_to_bin, continuous_bin_count:int):
+		if continuous_bin_count is None:
+			continuous_bin_count = 4
+
+		max = np.amax(array_to_bin)
+		min = np.amin(array_to_bin)
+		bins = np.linspace(start=min, stop=max, num=continuous_bin_count)
+		flts_binned = np.digitize(array_to_bin, bins, right=True)
+		return flts_binned
 
 
 

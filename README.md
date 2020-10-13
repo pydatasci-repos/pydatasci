@@ -121,16 +121,17 @@ dataset = aidb.Dataset.from_file(
 	, file_format = 'tsv'
 	, name = 'tab-separated plants'
 	, perform_gzip = True
-	, dtype = 'float64'
+	, dtype = 'float64' # or a dict or dtype by column name.
 )
 
-# From in-memory formats
+# From in-memory structures
 dataset = aidb.Dataset.from_pandas(
 	dataframe = df
 	, file_format = 'csv'
 	, name = 'comma-separated plants'
-	, perform_gzip = True
+	, perform_gzip = False
 	, dtype = None # None infers from dataframe provided
+	, rename_columns = None
 )
 
 dataset = aidb.Dataset.from_numpy(
@@ -138,10 +139,11 @@ dataset = aidb.Dataset.from_numpy(
 	, file_format = 'parquet'
 	, name = 'chunking plants'
 	, perform_gzip = True
-	, columns = None # feeds pd.Dataframe(columns)
 	, dtype = None # feeds pd.Dataframe(dtype)
+	, column_names = None # feeds pd.Dataframe(columns)
 )
 ```
+> Apart from `read_numpy()`, it's best if you provide your own column names ahead of time as the first row of your files and DataFrames that you want to ingest.
 
 > The bytes of the data will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
 
