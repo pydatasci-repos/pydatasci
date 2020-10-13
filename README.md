@@ -130,7 +130,7 @@ dataset = aidb.Dataset.from_pandas(
 	, file_format = 'csv'
 	, name = 'comma-separated plants'
 	, perform_gzip = True
-	, dtype = 'float64'
+	, dtype = None #None infers from dataframe
 )
 ```
 

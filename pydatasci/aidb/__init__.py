@@ -201,7 +201,7 @@ class Dataset(BaseModel):
 		, dtype:dict = None
 	):
 		if name is None:
-			name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + ".tsv"
+			name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + ".tsv" #edit me
 		if dtype is None:
 			dct_types = dataframe.dtypes.to_dict()
 			# convert the `dtype('float64')` to strings
@@ -242,11 +242,48 @@ class Dataset(BaseModel):
 		)
 		return d
 
-	"""
-	def from_numpy():
-		read as arrow
-		save as tsv
-	"""
+
+	def from_numpy(
+		ndarray
+		, name:str = None
+		, file_format:str = None
+		, perform_gzip:bool = True
+		, columns:list = None #pd.Dataframe param
+		, dtype:str = None #pd.Dataframe param
+	):
+		if (str(ndarray.__class__) == "<class 'numpy.ndarray'>"):
+			is_ndarray = True
+		else:
+			is_ndarray = False
+
+		if is_ndarray:
+			if False in np.isnan(ndarray[0]):
+			    pass
+			else:
+				ndarray = np.delete(ndarray, 0, axis=0)
+				print("\nInfo - The entire first row of your array is 'nan', so we deleted this row during ingestion.\n")
+			
+			col_names = ndarray.dtype.names
+			if (col_names is None) and (columns is None):
+				# generate string-based column names to feed to pandas
+				col_count = ndarray.shape[1]
+				columns = [str(i) for i in range(col_count)]
+				print("\nInfo - You didn't provide any column names for your array.\nSo we generated them for you:\ncolumns: " + str(columns) + "\n" )
+			
+		df = pd.DataFrame(
+			data = ndarray
+			, columns = columns
+			, dtype = dtype # pandas only accepts a single str.
+		)
+		
+		d = Dataset.from_pandas(
+			dataframe = df
+			, name = name
+			, file_format = file_format
+			, perform_gzip = perform_gzip
+			, dtype = None # numpy dtype handled when making df above.
+		)
+		return d
 
 
 	def to_pandas(
