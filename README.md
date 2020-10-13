@@ -130,11 +130,10 @@ dataset = aidb.Dataset.from_file(
 
 > Optionally, `dtype`, as seen in [`pandas.DataFrame.astype(dtype)`](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.astype.html), can be specified as either a single type for all columns, or as a dict that maps a specific type to each column name. This encodes features for analysis.
 
-#### Fetch a `Dataset`.
+#### Fetch a `Dataset` with either **Pandas** or **NumPy**.
 
 Supported in-memory formats include [NumPy Structured Array](https://numpy.org/doc/stable/user/basics.rec.html) and [Pandas DataFrame](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html). 
 
-#### Pandas & NumPy
 ```python
 # Implicit IDs
 df = dataset.to_pandas()
@@ -170,7 +169,7 @@ label_col = label.column
 Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
 
 
-### 3. Select `Featureset` columns.
+### 3. Extract `Featureset` columns.
 
 Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
@@ -206,9 +205,9 @@ Again, read a Featureset into memory with `to_pandas()` and `to_numpy()` methods
 > - Remember, these parameters accept *[lists]*, not raw *strings*.
 
 
-### 4. Select `splits` of samples.
+### 4. Generate `splits` of samples.
 
-Split the `Dataset` rows into `Splitsets` based on how you want to train, validate (optional), and test your models.
+Divide the `Dataset` rows into `Splitsets` based on how you want to train, validate (optional), and test your models.
 
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 

@@ -129,7 +129,7 @@ class Dataset(BaseModel):
 
 	def from_file(
 		path:str
-		, file_format:str
+		, file_format:str = None
 		, name:str = None
 		, perform_gzip:bool = True
 		, dtype:dict = None
@@ -160,13 +160,14 @@ class Dataset(BaseModel):
 			#ToDo prevent ff combos like '.csv' with 'parquet' vice versa.
 
 			# File formats.
-			if file_format == 'csv':
-				parse_opt = pc.ParseOptions(delimiter=',')
-				tbl = pc.read_csv(path)
-			elif file_format == 'tsv':
+			if (file_format == 'tsv') or (file_format is None):
 				parse_opt = pc.ParseOptions(delimiter='\t')
 				tbl = pc.read_csv(path, parse_options=parse_opt)
-			elif file_format == 'parquet':
+				file_format = 'tsv'
+			elif (file_format == 'csv'):
+				parse_opt = pc.ParseOptions(delimiter=',')
+				tbl = pc.read_csv(path)
+			elif (file_format == 'parquet'):
 				tbl = pq.read_table(path)
 
 			#ToDo - handle columns with no name.
@@ -192,6 +193,62 @@ class Dataset(BaseModel):
 			return d
 
 
+	def from_pandas(
+		dataframe
+		, name:str = None
+		, file_format:str = None
+		, perform_gzip:bool = True
+		, dtype:dict = None
+	):
+		if name is None:
+			name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + ".tsv"
+		if dtype is None:
+			dct_types = dataframe.dtypes.to_dict()
+			# convert the `dtype('float64')` to strings
+			keys_values = dct_types.items()
+			dtype = {k: str(v) for k, v in keys_values}
+		
+		columns = dataframe.columns.to_list()
+
+		# https://stackoverflow.com/a/25632711
+		buff = io.StringIO()
+		if (file_format == 'tsv') or (file_format is None):
+			dataframe.to_csv(buff, index=False, sep='\t')
+			buff_string = buff.getvalue()
+			data = bytes(buff_string, 'utf-8')
+			file_format = 'tsv'
+		elif (file_format == 'csv'):
+			dataframe.to_csv(buff, index=False, sep=',')
+			buff_string = buff.getvalue()
+			data = bytes(buff_string, 'utf-8')
+		elif (file_format == 'parquet'):
+			buff = io.BytesIO()
+			dataframe.to_parquet(buff) 
+			data = buff.getvalue()
+
+		if perform_gzip:
+			data = gzip.compress(data)
+			is_compressed=True
+		else:
+			is_compressed=False
+
+		d = Dataset.create(
+			name = name
+			, data = data
+			, dtype = dtype
+			, file_format = file_format
+			, is_compressed = is_compressed
+			, columns = columns
+		)
+		return d
+
+	"""
+	def from_numpy():
+		read as arrow
+		save as tsv
+	"""
+
+
 	def to_pandas(
 		id:int
 		, columns:list = None
@@ -208,7 +265,7 @@ class Dataset(BaseModel):
 		
 		# When user provides only 1 column and forgets to [] it (e.g. the label column).
 		if type(columns) == str:
-				columns = [columns]
+			columns = [columns]
 
 		data = d.data
 		bytesio_data = io.BytesIO(data)
@@ -228,8 +285,8 @@ class Dataset(BaseModel):
 				if ff == 'tsv':
 					df = pd.read_csv(
 						bytesio_data
-						,sep = '\t'
-						,usecols = columns)
+						, sep = '\t'
+						, usecols = columns)
 				else:
 					df = pd.read_csv(bytesio_data, usecols=columns)
 		elif ff == 'parquet':
@@ -247,10 +304,14 @@ class Dataset(BaseModel):
 
 		d_dtype = d.dtype
 		if d_dtype is not None:
-			d_dtype_cols = list(d_dtype.keys())
-			for col in d_dtype_cols:
-				if col not in columns:
-					del d_dtype[col]
+			if (type(d_dtype) == dict):
+				if columns is None:
+					columns = d.columns
+				# need to prune out the excluded columns from the dtype dict
+				d_dtype_cols = list(d_dtype.keys())
+				for col in d_dtype_cols:
+					if col not in columns:
+						del d_dtype[col]
 			df = df.astype(d_dtype)
 
 		return df
@@ -267,18 +328,7 @@ class Dataset(BaseModel):
 
 	"""
 	Future:
-	- Read as Tensors (pytorch and tf)? Or will numpy suffice?
-	- Longitudinal data?
-	- Images?
-	"""
-	"""
-	def from_pandas():
-		read as arrow
-		save as tsv
-
-	def from_numpy():
-		read as arrow
-		save as tsv
+	- Read to_tensor (pytorch and tf)? Or will numpy suffice?
 	"""
 
 	def make_label(id:int, column:str):
@@ -316,7 +366,8 @@ class Dataset(BaseModel):
 
 
 class Label(BaseModel):
-	column=CharField()
+	column = CharField()
+	#probabilities = JSONField() #result of semi-supervised learning.
 	
 	dataset = ForeignKeyField(Dataset, backref='labels')
 	
@@ -498,11 +549,13 @@ class Splitset(BaseModel):
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='splitsets')
 	
 
+
 	def from_featureset(
 		featureset_id:int
 		, label_name:str = None
 		, size_test:float = None
 		, size_validation:float = None
+		, continuous_bin_count:float = None
 		, fold_count:int = 1
 	):
 
@@ -570,19 +623,40 @@ class Splitset(BaseModel):
 			l_id = l.id
 			l_col = l.column 
 			arr_l = Dataset.to_numpy(id=d_id, columns=[l_col])
+			arr_l_dtype = arr_l.dtype
+
+			def continuous_bins(array_to_bin, continuous_bin_count:int):
+				if continuous_bin_count is None:
+					continuous_bin_count = 4
+
+				max = np.amax(array_to_bin)
+				min = np.amin(array_to_bin)
+				bins = np.linspace(start=min, stop=max, num=continuous_bin_count)
+				flts_binned = np.digitize(array_to_bin, bins, right=True)
+				return flts_binned
+
+			if (arr_l_dtype == 'float32') or (arr_l_dtype == 'float64'):
+				stratify1 = continuous_bins(arr_l, continuous_bin_count)
+			else:
+				stratify1 = arr_l
 
 			# `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 			features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
 				arr_f, arr_l, arr_idx
 				,test_size = size_test
-				,stratify = arr_l
+				,stratify = stratify1
 			)
 
 			if size_validation is not None:
+				if (arr_l_dtype == 'float32') or (arr_l_dtype == 'float64'):
+					stratify2 = continuous_bins(labels_train, continuous_bin_count)
+				else:
+					stratify2 = labels_train
+
 				features_train, features_validation, labels_train, labels_validation, indices_train, indices_validation = train_test_split(
 					features_train, labels_train, indices_train
 					,test_size = pct_for_2nd_split
-					,stratify = labels_train
+					,stratify = stratify2
 				)
 				indices_lst_validation = indices_validation.tolist()
 				samples["validation"] = indices_lst_validation
