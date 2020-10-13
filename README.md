@@ -110,12 +110,12 @@ import pydatasci as pds
 from pydatasci import aidb
 ```
 
-### 2. Add a `Dataset` file.
+### 2. Ingest a `Dataset` as a compressed file.
 
-Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point, the project's support for Parquet is extremely minimal.
+Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/).
 
 ```python
-# File-based
+# From files
 dataset = aidb.Dataset.from_file(
 	path = 'iris.tsv' 
 	, file_format = 'tsv'
@@ -124,7 +124,7 @@ dataset = aidb.Dataset.from_file(
 	, dtype = 'float64'
 )
 
-# In-memory
+# From in-memory formats
 dataset = aidb.Dataset.from_pandas(
 	dataframe = df
 	, file_format = 'csv'
@@ -132,13 +132,26 @@ dataset = aidb.Dataset.from_pandas(
 	, perform_gzip = True
 	, dtype = None #None infers from dataframe
 )
+
+dataset = aidb.Dataset.from_numpy(
+    ndarray = arr
+	, file_format = 'parquet'
+	, name = 'chunking plants'
+	, perform_gzip = True
+	, columns = None # fed to pd.Dataframe(columns)
+	, dtype = None #fed to pd.Dataframe(dtype)
+)
 ```
 
-> The bytes of the file will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
+> The bytes of the data will be stored as a BlobField in the SQLite database file. Storing the data in the database not only (a) provides an entity that we can use to keep track of experiments and link relational data to but also (b) makes the data less mutable than keeping it in the open filesystem.
 
 > You can choose whether or not you want to gzip compress the file when importing it with the `perform_gzip=bool` parameter. This compression not only enables you to store up to 90% more data on your local machine, but also helps overcome the maximum BlobField size of 2.147 GB. We handle the zipping and unzipping on the fly for you, so you don't even notice it.
 
-> Optionally, `dtype`, as seen in [`pandas.DataFrame.astype(dtype)`](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.astype.html), can be specified as either a single type for all columns, or as a dict that maps a specific type to each column name. This encodes features for analysis.
+> Optionally, `dtype`, as seen in [`pandas.DataFrame.astype(dtype)`](https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.astype.html), can be specified as either a single type for all columns, or as a dict that maps a specific type to each column name. This encodes features for analysis. We read NumPy into Pandas before persisting it, so `columns` and `dtype` are read directly by `pd.DataFrame()`.
+
+> At this point, the project's support for Parquet is extremely minimal.
+
+> If you leave `name` blank, it will default to a human-readble timestamp with the appropriate file extension (e.g. '2020_10_13-01_28_13_PM.tsv').
 
 #### Fetch a `Dataset` with either **Pandas** or **NumPy**.
 

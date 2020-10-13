@@ -272,6 +272,7 @@ class Dataset(BaseModel):
 			, columns = columns
 			, dtype = dtype # pandas only accepts a single str. pandas infers if None.
 		)
+		del ndarray
 		
 		d = Dataset.from_pandas(
 			dataframe = df
@@ -356,6 +357,9 @@ class Dataset(BaseModel):
 		,columns:list = None
 		,samples:list = None
 	):
+		d = Dataset.get_by_id(id)
+		dtype = d.dtype
+
 		df = Dataset.to_pandas(id=id, columns=columns, samples=samples)
 		arr = df.to_numpy()
 		return arr
