@@ -200,8 +200,6 @@ class Dataset(BaseModel):
 		, perform_gzip:bool = True
 		, dtype:dict = None
 	):
-		if name is None:
-			name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + ".tsv" #edit me
 		if dtype is None:
 			dct_types = dataframe.dtypes.to_dict()
 			# convert the `dtype('float64')` to strings
@@ -232,6 +230,9 @@ class Dataset(BaseModel):
 		else:
 			is_compressed=False
 
+		if name is None:
+			name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + "." + file_format
+
 		d = Dataset.create(
 			name = name
 			, data = data
@@ -251,12 +252,8 @@ class Dataset(BaseModel):
 		, columns:list = None #pd.Dataframe param
 		, dtype:str = None #pd.Dataframe param
 	):
-		if (str(ndarray.__class__) == "<class 'numpy.ndarray'>"):
-			is_ndarray = True
-		else:
-			is_ndarray = False
-
-		if is_ndarray:
+		# check if it is an ndarray as opposed to structuredArray
+		if (ndarray.dtype.names is None):
 			if False in np.isnan(ndarray[0]):
 			    pass
 			else:
@@ -268,12 +265,12 @@ class Dataset(BaseModel):
 				# generate string-based column names to feed to pandas
 				col_count = ndarray.shape[1]
 				columns = [str(i) for i in range(col_count)]
-				print("\nInfo - You didn't provide any column names for your array.\nSo we generated them for you:\ncolumns: " + str(columns) + "\n" )
+				print("\nInfo - You didn't provide any column names for your array, so we generated them for you.\ncolumns: " + str(columns) + "\n" )
 			
 		df = pd.DataFrame(
 			data = ndarray
 			, columns = columns
-			, dtype = dtype # pandas only accepts a single str.
+			, dtype = dtype # pandas only accepts a single str. pandas infers if None.
 		)
 		
 		d = Dataset.from_pandas(
