@@ -115,10 +115,20 @@ from pydatasci import aidb
 Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/). At this point, the project's support for Parquet is extremely minimal.
 
 ```python
+# File-based
 dataset = aidb.Dataset.from_file(
 	path = 'iris.tsv' 
 	, file_format = 'tsv'
 	, name = 'tab-separated plants'
+	, perform_gzip = True
+	, dtype = 'float64'
+)
+
+# In-memory
+dataset = aidb.Dataset.from_pandas(
+	dataframe = df
+	, file_format = 'csv'
+	, name = 'comma-separated plants'
 	, perform_gzip = True
 	, dtype = 'float64'
 )
@@ -152,7 +162,7 @@ arr[:4]
 
 > For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-### 2. Select a `Label` column.
+### 3. Select a `Label` column.
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
@@ -169,7 +179,7 @@ label_col = label.column
 Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
 
 
-### 3. Extract `Featureset` columns.
+### 4. Extract `Featureset` columns.
 
 Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
@@ -205,7 +215,7 @@ Again, read a Featureset into memory with `to_pandas()` and `to_numpy()` methods
 > - Remember, these parameters accept *[lists]*, not raw *strings*.
 
 
-### 4. Generate `splits` of samples.
+### 5. Generate `splits` of samples.
 
 Divide the `Dataset` rows into `Splitsets` based on how you want to train, validate (optional), and test your models.
 
@@ -269,13 +279,13 @@ Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. 
 ```
 
 
-### 5. Create an `Algorithm` aka model to fit to your splits.
+### 6. Create an `Algorithm` aka model to fit to your splits.
 
 
-### 6. Create combinations of `Hyperparamsets` for your algorithms.
+### 7. Create combinations of `Hyperparamsets` for your algorithms.
 
 
-### 7. Create a `Batch` of `Job`'s to keep track of training.
+### 8. Create a `Batch` of `Job`'s to keep track of training.
 
 ---
 
