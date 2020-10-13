@@ -206,6 +206,11 @@ class Dataset(BaseModel):
 			keys_values = dct_types.items()
 			dtype = {k: str(v) for k, v in keys_values}
 		
+		cols_raw = dataframe.columns.to_list()
+		# in case the columns were a range of ints.
+		cols_str = [str(i) for i in cols_raw]
+		cols_dct = dict(zip(cols_raw, cols_str))
+		dataframe = dataframe.rename(columns=cols_dct)
 		columns = dataframe.columns.to_list()
 
 		# https://stackoverflow.com/a/25632711
