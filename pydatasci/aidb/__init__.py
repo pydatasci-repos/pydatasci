@@ -167,11 +167,7 @@ class Dataset(BaseModel):
 		with open(path, "rb") as f:
 			bytesio = io.BytesIO(f.read())
 			data = bytesio.getvalue()
-			if perform_gzip:
-				data = gzip.compress(data)
-				is_compressed=True
-			else:
-				is_compressed=False
+			data, is_compressed = Dataset.compress_or_not(data, perform_gzip)
 
 		d = Dataset.create(
 			name = name
@@ -223,11 +219,7 @@ class Dataset(BaseModel):
 			dataframe.to_parquet(buff) 
 			data = buff.getvalue()
 
-		if perform_gzip:
-			data = gzip.compress(data)
-			is_compressed=True
-		else:
-			is_compressed=False
+		data, is_compressed = Dataset.compress_or_not(data, perform_gzip)
 
 		if name is None:
 			name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p") + "." + file_format
@@ -413,7 +405,6 @@ class Dataset(BaseModel):
 		
 		df = df.rename(columns=cols_dct)
 		columns = df.columns.to_list()
-		
 		return df, columns
 
 
@@ -428,6 +419,16 @@ class Dataset(BaseModel):
 		structure_col_count = structure.shape[1]
 		if col_count != structure_col_count:
 			raise ValueError("\nYikes - The dataframe you provided has " + structure_col_count + "columns, but you provided " + col_count + "columns.\n")
+
+
+	def compress_or_not(data, perform_gzip):
+		if perform_gzip:
+			data = gzip.compress(data)
+			is_compressed=True
+		else:
+			is_compressed=False
+		return data, perform_gzip
+
 
 
 
