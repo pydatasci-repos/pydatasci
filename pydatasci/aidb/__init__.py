@@ -696,12 +696,15 @@ class Splitset(BaseModel):
 				stratify1 = Splitset.continuous_bins(arr_l, continuous_bin_count)
 			else:
 				stratify1 = arr_l
-
-			# `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
+			"""
+			- `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
+			- `shuffle` happens before the split. Although preserves a df's original index, we don't need to worry about that because we are providing our own indices.
+			"""
 			features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
 				arr_f, arr_l, arr_idx
-				,test_size = size_test
-				,stratify = stratify1
+				, test_size = size_test
+				, stratify = stratify1
+				, shuffle = True
 			)
 
 			if size_validation is not None:
@@ -712,8 +715,9 @@ class Splitset(BaseModel):
 
 				features_train, features_validation, labels_train, labels_validation, indices_train, indices_validation = train_test_split(
 					features_train, labels_train, indices_train
-					,test_size = pct_for_2nd_split
-					,stratify = stratify2
+					, test_size = pct_for_2nd_split
+					, stratify = stratify2
+					, shuffle = True
 				)
 				indices_lst_validation = indices_validation.tolist()
 				samples["validation"] = indices_lst_validation
