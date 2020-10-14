@@ -22,7 +22,7 @@ aidb.create_db()
 
 * **Local-First**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
-* **Code-Integrated**<br />We don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Weave automated tracking into their existing code to work alongside the existing ecosystem of data science tools.<br /><br />
+* **Code-Integrated**<br />We don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Instead, we weave automated tracking into their existing code so that *PyDataSci* is compatible with any data science toolset.<br /><br />
 
 * **Scale-Em-If-You-Gottem**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
 
@@ -33,7 +33,7 @@ aidb.create_db()
 - Derive informative featuresets from that dataset using supervised and unsupervised methods.
 - Queue hypertuning jobs and batches based on hyperparameter combinations.
 - Evaluate and save the performance metrics of each model.
-- Visually compare models to find the best one.
+- Visually compare model metrics to find the best one.
 - Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
