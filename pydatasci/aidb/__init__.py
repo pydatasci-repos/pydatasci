@@ -443,9 +443,8 @@ class Label(BaseModel):
 		d = Dataset.get_by_id(dataset_id)
 
 		# check for duplicates
-		d_labels = d.labels
-		d_labels_col = [l.column for l in d_labels]
-		if column in d_labels_col:
+		matching_label = d.fetch_label_by_name(label_name=column)
+		if matching_label is not None:
 			raise ValueError("\nYikes - This Dataset already has a Label with target column named '" + column + "'.\nCannot create duplicate Label.\n")
 
 		# verify that the column exists
@@ -681,7 +680,7 @@ class Splitset(BaseModel):
 		else:
 			supervision = "supervised"
 			# Splits generate different samples each time, so we do not need to prevent duplicates on the same label_name.
-			l = d.fetch_label_by_name(label_name=label_name)
+			l = Dataset.fetch_label_by_name(id=d_id, label_name=label_name)
 			if l is None:
 				raise ValueError("\nYikes - there is no Label with a `column` attribute named '" + label_name + "'\n")
 
