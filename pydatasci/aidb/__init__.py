@@ -143,11 +143,8 @@ class Dataset(BaseModel):
 		- `name`: if none specified, then `path` string will be used.
 		- `perform_gzip`: Whether or not to perform gzip compression on the file. We have observed up to 90% compression rates during testing.
 		"""
-		accepted_formats = ['csv', 'tsv', 'parquet', None]
-		if file_format not in accepted_formats:
-			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+		Dataset.check_file_format(file_format)
 
-		# Defaults.
 		if name is None:
 			name=path
 		if perform_gzip is None:
@@ -198,9 +195,8 @@ class Dataset(BaseModel):
 		if dataframe.empty:
 			raise ValueError("\nYikes - The dataframe you provided is empty according to `df.empty`")
 
-		accepted_formats = ['csv', 'tsv', 'parquet', None]
-		if file_format not in accepted_formats:
-			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+		Dataset.check_file_format(file_format)
+		Dataset.check_column_count(user_columns=rename_columns, structure=dataframe)
 
 		if dtype is None:
 			dct_types = dataframe.dtypes.to_dict()
@@ -255,9 +251,11 @@ class Dataset(BaseModel):
 		, column_names:list = None #pd.Dataframe param
 		, dtype:str = None #pd.Dataframe param
 	):
-		accepted_formats = ['csv', 'tsv', 'parquet', None]
-		if file_format not in accepted_formats:
-			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+		Dataset.check_file_format(file_format)
+		Dataset.check_column_count(user_columns=column_names, structure=ndarray)
+
+		if ndarray.size == 0:
+			raise ValueError("\nYikes - The ndarray you provided is empty: `ndarray.size == 0`.\n")
 
 		# check if it is an ndarray as opposed to structuredArray
 		if (ndarray.dtype.names is None):
@@ -304,10 +302,6 @@ class Dataset(BaseModel):
 		d = Dataset.get_by_id(id)
 		is_compressed = d.is_compressed
 		ff = d.file_format
-		
-		# When user provides only 1 column and forgets to [] it (e.g. the label column).
-		if type(columns) == str:
-			columns = [columns]
 
 		data = d.data
 		bytesio_data = io.BytesIO(data)
@@ -406,6 +400,7 @@ class Dataset(BaseModel):
 		)
 		return f
 
+
 	def pandas_stringify_columns(df, columns):
 		cols_raw = df.columns.to_list()
 		if columns is None:
@@ -420,6 +415,19 @@ class Dataset(BaseModel):
 		columns = df.columns.to_list()
 		
 		return df, columns
+
+
+	def check_file_format(ff):
+		accepted_formats = ['csv', 'tsv', 'parquet', None]
+		if file_format not in accepted_formats:
+			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+
+
+	def check_column_count(user_columns, structure):
+		col_count = len(user_columns)
+		structure_col_count = structure.shape[1]
+		if col_count != structure_col_count:
+			raise ValueError("\nYikes - The dataframe you provided has " + structure_col_count + "columns, but you provided " + col_count + "columns.\n")
 
 
 
