@@ -1,6 +1,6 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib
+import os, sqlite3, io, gzip, zlib, random
 from datetime import datetime
 
 #orm
@@ -408,7 +408,7 @@ class Dataset(BaseModel):
 		return df, columns
 
 
-	def check_file_format(ff):
+	def check_file_format(file_format):
 		accepted_formats = ['csv', 'tsv', 'parquet', None]
 		if file_format not in accepted_formats:
 			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
@@ -464,8 +464,8 @@ class Label(BaseModel):
 		
 		lf = Dataset.to_pandas(
 			id = dataset_id
-			,columns = l_col
-			,samples = samples
+			, columns = [l_col]
+			, samples = samples
 		)
 		return lf
 
@@ -602,20 +602,16 @@ class Splitset(BaseModel):
 	"""
 	- Belongs to a Featureset, not a Dataset, because the samples selected vary based on the stratification of the features during the split,
 	  and a Featureset already has a Dataset anyways.
-	  https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.StratifiedKFold.html
-	- Can this also be supervised and unsupervised?
 	"""
 	samples = JSONField()
 	sizes = JSONField()
 	supervision = CharField()
-	is_validated = BooleanField()
-	is_folded = BooleanField()
-	fold_count = IntegerField() #Future: folds # validate too many folds? try setting between 3-10 depending on the size of your data.
+	has_test = BooleanField()
+	has_validation = BooleanField()
 
 	featureset = ForeignKeyField(Featureset, backref='splitsets')
 	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='splitsets')
 	
-
 
 	def from_featureset(
 		featureset_id:int
@@ -623,12 +619,13 @@ class Splitset(BaseModel):
 		, size_test:float = None
 		, size_validation:float = None
 		, continuous_bin_count:float = None
-		, fold_count:int = 1
 	):
 
 		if size_test is not None:
 			if (size_test <= 0.0) or (size_test >= 1.0):
 				raise ValueError("\nYikes - `size_test` must be between 0.0 and 1.0\n")
+			# Don't handle `has_test` here. Need to check label first.
+			
 		
 		if (size_validation is not None) and (size_test is None):
 			raise ValueError("\nYikes - you specified a `size_validation` without setting a `size_test`.")
@@ -646,9 +643,9 @@ class Splitset(BaseModel):
 			(1.0/(1.0-0.20))*0.13 = 0.1625
 			"""
 			pct_for_2nd_split = (1.0/(1.0-size_test))*size_validation
-			is_validated = True
+			has_validation = True
 		else:
-			is_validated = False
+			has_validation = False
 
 		f = Featureset.get_by_id(featureset_id)
 		f_cols = f.columns
@@ -669,6 +666,7 @@ class Splitset(BaseModel):
 		sizes = {}
 
 		if label_name is None:
+			has_test = False
 			supervision = "unsupervised"
 			l = None
 			if (size_test is not None) or (size_validation is not None):
@@ -678,7 +676,6 @@ class Splitset(BaseModel):
 				samples["train"] = indices_lst_train
 				sizes["train"] = {"percent": 1.00, "count": row_count}
 		else:
-			supervision = "supervised"
 			# Splits generate different samples each time, so we do not need to prevent duplicates on the same label_name.
 			l = Dataset.fetch_label_by_name(id=d_id, label_name=label_name)
 			if l is None:
@@ -686,6 +683,8 @@ class Splitset(BaseModel):
 
 			if size_test is None:
 				size_test = 0.25
+			has_test = True
+			supervision = "supervised"
 
 			l_id = l.id
 			l_col = l.column 
@@ -737,18 +736,14 @@ class Splitset(BaseModel):
 			sizes["test"] = {"percent": size_test, "count": count_test}
 			sizes["train"] = {"percent": size_train, "count": count_train}
 
-		if fold_count < 2:
-			is_folded = False
-
 		s = Splitset.create(
 			featureset = f
 			, label = l
 			, samples = samples
 			, sizes = sizes
 			, supervision = supervision
-			, is_validated = is_validated
-			, is_folded = is_folded
-			, fold_count = fold_count
+			, has_test = has_test
+			, has_validation = has_validation
 		)
 		return s
 
@@ -825,6 +820,55 @@ class Splitset(BaseModel):
 
 
 
+"""
+class Foldset(BaseModel):
+	folds = JSONField()
+	fold_count = IntegerField()
+	random_state = IntegerField()
+
+	splitset = ForeignKeyField(Splitset, deferrable='INITIALLY DEFERRED', null=True, backref='foldsets')
+
+	def from_splitset(
+		splitset_id:int
+		, fold_count:int = None #default 5
+	):
+		s = Splitset.get_by_id(splitset_id)
+		new_random = False
+		while new_random == False:
+			random_state = random.randint(0, 4294967295) #2**32 - 1 inclusive
+			matching_randoms = s.foldsets.select().where(Foldset.random_state==random_state)
+			count_matches = matching_randoms.count()
+			if count_matches == 0:
+				new_random == True
+		if fold_count is None:
+			#ToDo - check the size of test. want like 30 in each fold
+			fold_count = 5
+		else:
+			if fold_count < 2:
+				raise ValueError("\nYikes - Cross validation requires multiple folds and you set `fold_count` < 2.")
+
+		# get the training indices
+		arr_train_indices = s.samples["train"]["features"]
+		arr_
+		# then fetch the train labels
+		# train feat
+		# train labels
+
+		if len(arr_l) % fold_count != 0:
+			print("\nAdvice - The length of your Dataset is not evenly divisible by the number of folds you specified.\nThere's a chance that this could lead to misleadingly low accuracy for a fold with less samples in the case of a high remainder.")
+
+
+
+	foldset = Foldset.create(
+		folds = folds
+		, fold_count = fold_count
+		, random_state = random_state
+	)
+	return foldset
+
+	# def to_pandas():
+	# def to_numpy():
+"""
 
 class Algorithm(BaseModel):
 	name = CharField()
