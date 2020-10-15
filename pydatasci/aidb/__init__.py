@@ -860,7 +860,7 @@ class Foldset(BaseModel):
 			fold_count = 5
 		else:
 			if fold_count < 2:
-				raise ValueError("\nYikes - Cross validation requires multiple folds and you set `fold_count` < 2.")
+				raise ValueError("\nYikes - Cross validation requires multiple folds and you set `fold_count` < 2.\n")
 
 		# get the training indices. the values of the features don't matter, only labels needed for stratification.
 		arr_train_indices = s.samples["train"]
@@ -870,13 +870,20 @@ class Foldset(BaseModel):
 		if train_count % fold_count != 0:
 			print("\nAdvice - The length <" + train_count + "> of your training Split is not evenly divisible by the number of folds <" + fold_count + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold.")
 
+		# This 'test' split that is untouched by the cross-validation process.
+		test_index = s.samples["test"]
+
 		skf = StratifiedKFold(n_splits=fold_count, shuffle=True, random_state=random_state)
 		splitz_gen = skf.split(arr_train_indices, arr_train_labels)
 		
 		folds, i = {}, -1
-		for train_index, validation_index in splitz_gen:
+		for index_train, index_validation in splitz_gen:
 			i+=1
-			folds[i] = {"train": train_index.tolist(), "validation": validation_index.tolist()}
+			folds[i] = {
+				"train_folds_combined": index_train.tolist()
+				, "validation_fold": index_validation.tolist()
+				, "test_holdout": test_index
+			}
 		
 		foldset = Foldset.create(
 			folds = folds
@@ -885,8 +892,28 @@ class Foldset(BaseModel):
 		)
 		return foldset
 
-	# def to_pandas():
+
+	"""
+	def to_pandas(id:int, fold_index:int):
+	"""
+	#- Only going to support fetching, by fold_index, one round of cross-validation at a time.
+	#- The Test 
+	"""
+
+		foldset = Foldset.get_by_id(id=id)
+		fold_count = foldset.fold_count
+
+		if fold_index is not None:
+			if (0 > fold_index) or (fold_index > fold_count):
+				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has indices between 0 and " + str(fold_count) + "\n")
+
+
+	fold_frames = Dataset.
+	return fold_frames
+
 	# def to_numpy():
+	"""
+
 
 class Algorithm(BaseModel):
 	name = CharField()
