@@ -13,7 +13,7 @@ from pyarrow import parquet as pq
 from pyarrow import csv as pc
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, StratifiedKFold
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -81,7 +81,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Algorithm])
+		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Foldset, Algorithm])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -461,7 +461,7 @@ class Label(BaseModel):
 		l = Label.get_by_id(id)
 		l_col = l.column
 		dataset_id = l.dataset.id
-		
+
 		lf = Dataset.to_pandas(
 			id = dataset_id
 			, columns = [l_col]
@@ -818,9 +818,13 @@ class Splitset(BaseModel):
 		flts_binned = np.digitize(array_to_bin, bins, right=True)
 		return flts_binned
 
+	def make_foldset(id:int, fold_count:int=None):
+		foldset = Foldset.from_splitset(splitset_id=id, fold_count=fold_count)
+		return foldset
 
 
-"""
+
+
 class Foldset(BaseModel):
 	folds = JSONField()
 	fold_count = IntegerField()
@@ -830,7 +834,7 @@ class Foldset(BaseModel):
 
 	def from_splitset(
 		splitset_id:int
-		, fold_count:int = None #default 5
+		, fold_count:int = None
 	):
 		s = Splitset.get_by_id(splitset_id)
 		new_random = False
@@ -839,7 +843,7 @@ class Foldset(BaseModel):
 			matching_randoms = s.foldsets.select().where(Foldset.random_state==random_state)
 			count_matches = matching_randoms.count()
 			if count_matches == 0:
-				new_random == True
+				new_random = True
 		if fold_count is None:
 			#ToDo - check the size of test. want like 30 in each fold
 			fold_count = 5
@@ -847,28 +851,32 @@ class Foldset(BaseModel):
 			if fold_count < 2:
 				raise ValueError("\nYikes - Cross validation requires multiple folds and you set `fold_count` < 2.")
 
-		# get the training indices
-		arr_train_indices = s.samples["train"]["features"]
-		arr_
-		# then fetch the train labels
-		# train feat
-		# train labels
+		# get the training indices. the values of the features don't matter, only labels needed for stratification.
+		arr_train_indices = s.samples["train"]
+		#lst_train_indices = arr_train_indices.to_list()
+		arr_train_labels = s.label.to_numpy(samples=arr_train_indices)
 
-		if len(arr_l) % fold_count != 0:
-			print("\nAdvice - The length of your Dataset is not evenly divisible by the number of folds you specified.\nThere's a chance that this could lead to misleadingly low accuracy for a fold with less samples in the case of a high remainder.")
+		train_count = len(arr_train_indices)
+		if train_count % fold_count != 0:
+			print("\nAdvice - The length <" + train_count + "> of your training Split is not evenly divisible by the number of folds <" + fold_count + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold.")
 
-
-
-	foldset = Foldset.create(
-		folds = folds
-		, fold_count = fold_count
-		, random_state = random_state
-	)
-	return foldset
+		skf = StratifiedKFold(n_splits=fold_count, shuffle=True, random_state=random_state)
+		splitz_gen = skf.split(arr_train_indices, arr_train_labels)
+		
+		folds, i = {}, -1
+		for train_index, validation_index in splitz_gen:
+			i+=1
+			folds[i] = {"train": train_index.tolist(), "validation": validation_index.tolist()}
+		
+		foldset = Foldset.create(
+			folds = folds
+			, fold_count = fold_count
+			, random_state = random_state
+		)
+		return foldset
 
 	# def to_pandas():
 	# def to_numpy():
-"""
 
 class Algorithm(BaseModel):
 	name = CharField()
