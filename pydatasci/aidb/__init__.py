@@ -121,10 +121,11 @@ class BaseModel(Model):
 class Dataset(BaseModel):
 	name = CharField()
 	data = BlobField()
+	shape = JSONField()
 	dtype = JSONField(null=True)
 	file_format = CharField()
 	is_compressed = BooleanField()
-	columns= JSONField()
+	columns = JSONField()
 	#is_shuffled= BooleanField()#False
 
 	def from_file(
@@ -163,6 +164,8 @@ class Dataset(BaseModel):
 
 		#ToDo - handle columns with no name.
 		columns = tbl.column_names
+		shape = {}
+		shape['rows'], shape['columns'],  = tbl.num_rows, tbl.num_columns
 
 		with open(path, "rb") as f:
 			bytesio = io.BytesIO(f.read())
@@ -172,6 +175,7 @@ class Dataset(BaseModel):
 		d = Dataset.create(
 			name = name
 			, data = data
+			, shape = shape
 			, dtype = dtype
 			, file_format = file_format
 			, is_compressed = is_compressed
@@ -193,6 +197,9 @@ class Dataset(BaseModel):
 
 		Dataset.check_file_format(file_format)
 		Dataset.check_column_count(user_columns=rename_columns, structure=dataframe)
+
+		shape = {}
+		shape['rows'], shape['columns'] = dataframe.shape[0], dataframe.shape[1]
 
 		if dtype is None:
 			dct_types = dataframe.dtypes.to_dict()
@@ -227,6 +234,7 @@ class Dataset(BaseModel):
 		d = Dataset.create(
 			name = name
 			, data = data
+			, shape = shape
 			, dtype = dtype
 			, file_format = file_format
 			, is_compressed = is_compressed
@@ -264,6 +272,9 @@ class Dataset(BaseModel):
 				column_names = [str(i) for i in range(col_count)]
 				print("\nInfo - You didn't provide any column names for your array, so we generated them for you.\ncolumn_names: " + str(column_names) + "\n" )
 			
+		shape = {}
+		shape['rows'], shape['columns'] = ndarray.shape[0], ndarray.shape[1]
+
 		df = pd.DataFrame(
 			data = ndarray
 			, columns = column_names

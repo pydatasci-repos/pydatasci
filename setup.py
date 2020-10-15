@@ -19,6 +19,7 @@ setuptools.setup(
         'pandas',
         'peewee',
         'pyarrow',
+        'scikit-learn'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
