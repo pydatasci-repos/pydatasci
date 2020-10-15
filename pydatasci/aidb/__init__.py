@@ -853,7 +853,6 @@ class Foldset(BaseModel):
 
 		# get the training indices. the values of the features don't matter, only labels needed for stratification.
 		arr_train_indices = s.samples["train"]
-		#lst_train_indices = arr_train_indices.to_list()
 		arr_train_labels = s.label.to_numpy(samples=arr_train_indices)
 
 		train_count = len(arr_train_indices)
