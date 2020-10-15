@@ -1,9 +1,9 @@
-![PyDataSci (wide)](logo_pds_wide.png)
+![PyDataSci (wide)](images/logo_pds_wide.png)
 
 ---
 
 # Value Proposition
-PyDataSci's **_aidb_** is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
 
 ## TLDR
 ```
@@ -37,7 +37,7 @@ aidb.create_db()
 - Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
-![Ecosystem Banner (wide)](ecosystem_banner.png)
+![Ecosystem Banner (wide)](images/ecosystem_banner.png)
 
 ## Painpoint Solved
 At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. 
