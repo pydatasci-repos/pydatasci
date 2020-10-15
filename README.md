@@ -29,11 +29,11 @@ aidb.create_db()
 
 ## Functionality
 - [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
-- [Done] Split your features and samples while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
+- [Done] Split samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
 - Derive informative featuresets from that dataset using supervised and unsupervised methods.
 - Queue hypertuning jobs and batches based on hyperparameter combinations.
 - Evaluate and save the performance metrics of each model.
-- Visually compare model metrics to find the best one.
+- Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
 - Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
