@@ -840,6 +840,7 @@ class Splitset(BaseModel):
 class Foldset(BaseModel):
 	"""
 	- Hmm, could give people the option to merge their train and validation splits? with a flag.
+	- Bug: integer keys in JSONField read as str (https://github.com/coleifer/peewee/issues/2282).
 	"""
 	folds = JSONField()
 	fold_count = IntegerField()
@@ -871,8 +872,9 @@ class Foldset(BaseModel):
 		arr_train_labels = s.label.to_numpy(samples=arr_train_indices)
 
 		train_count = len(arr_train_indices)
-		if train_count % fold_count != 0:
-			print("\nAdvice - The length <" + train_count + "> of your training Split is not evenly divisible by the number of folds <" + fold_count + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold.")
+		remainder = train_count % fold_count
+		if remainder != 0:
+			print("\nAdvice - The length <" + str(train_count) + "> of your training Split is not evenly divisible by the number of folds <" + str(fold_count) + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold, which only has <" + str(remainder) + "> samples in it.\n")
 
 		# This 'test' split that is untouched by the cross-validation process.
 		if s.has_test:
@@ -886,13 +888,13 @@ class Foldset(BaseModel):
 		# I hate dictionaries.
 		folds = {}
 		# Creating the dictionary index first I guess.
-		for f in range(fold_count):
-			folds[f] = {}
+		for i in range(fold_count):
+			folds[i] = {}
 		i = -1
-		for index_train, index_validation in splitz_gen:
+		for index_folds_train, index_fold_validation in splitz_gen:
 			i+=1
-			folds[i]["folds_train_combined"] = index_train.tolist()
-			folds[i]["fold_validation"] = index_train.tolist()
+			folds[i]["folds_train_combined"] = index_folds_train.tolist()
+			folds[i]["fold_validation"] = index_fold_validation.tolist()
 			if s.has_validation:
 				folds[i]["holdout_validation"] = index_holdout_validation
 			if s.has_test:
@@ -905,6 +907,53 @@ class Foldset(BaseModel):
 			, splitset = s
 		)
 		return foldset
+
+
+	def to_pandas(id:int, fold_index:int=None):
+		foldset = Foldset.get_by_id(id)
+		fold_count = foldset.fold_count
+		folds = foldset.folds
+		folds = {int(k):v for k,v in folds.items()}
+
+		if fold_index is not None:
+			if (0 > fold_index) or (fold_index > fold_count):
+				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has indices between 0 and " + str(fold_count) + "\n")
+
+		s = foldset.splitset
+		supervision = s.supervision
+		featureset = s.featureset
+		
+		fold_frames = {}
+		if fold_index is not None:
+			fold_frames[i] = {}
+		else:
+			for i in range(fold_count):
+				fold_frames[i] = {}
+
+		# keys are already 0 based range.
+		for i in fold_frames.keys():
+			
+			fold = folds[i]
+			# fold = train_folds_combined, validation_fold, holdout_validation, holdout_test
+			for fold_name in fold.keys():
+
+				# placeholder for the frames/arrays
+				fold_frames[i][fold_name] = {}
+				
+				# fetch the sample indices for the split
+				folds_samples = fold[fold_name]
+				ff = featureset.to_pandas(samples=folds_samples)
+				fold_frames[i][fold_name]["features"] = ff
+
+				if supervision == "supervised":
+					l = s.label
+					lf = l.to_pandas(samples=folds_samples)
+					fold_frames[i][fold_name]["labels"] = lf
+
+		return fold_frames
+
+	# def to_numpy():
+	
 
 
 
