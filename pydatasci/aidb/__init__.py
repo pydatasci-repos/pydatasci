@@ -841,7 +841,7 @@ class Foldset(BaseModel):
 	fold_count = IntegerField()
 	random_state = IntegerField()
 
-	splitset = ForeignKeyField(Splitset, deferrable='INITIALLY DEFERRED', null=True, backref='foldsets')
+	splitset = ForeignKeyField(Splitset, backref='foldsets')
 
 	def from_splitset(
 		splitset_id:int
@@ -871,7 +871,9 @@ class Foldset(BaseModel):
 			print("\nAdvice - The length <" + train_count + "> of your training Split is not evenly divisible by the number of folds <" + fold_count + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold.")
 
 		# This 'test' split that is untouched by the cross-validation process.
-		test_index = s.samples["test"]
+		index_holdout_test = s.samples["test"]
+		if s.has_validation:
+			index_holdout_validation = s.samples["validation"]
 
 		skf = StratifiedKFold(n_splits=fold_count, shuffle=True, random_state=random_state)
 		splitz_gen = skf.split(arr_train_indices, arr_train_labels)
@@ -879,12 +881,20 @@ class Foldset(BaseModel):
 		folds, i = {}, -1
 		for index_train, index_validation in splitz_gen:
 			i+=1
-			folds[i] = {
-				"train_folds_combined": index_train.tolist()
-				, "validation_fold": index_validation.tolist()
-				, "test_holdout": test_index
-			}
-		
+			if s.has_validation:
+				folds[i] = {
+					"folds_train_combined": index_train.tolist()
+					, "fold_validation": index_validation.tolist()
+					, "holdout_validation": index_holdout_validation
+					, "holdout_test": index_holdout_test
+				}
+			else:
+				folds[i] = {
+					"folds_train_combined": index_train.tolist()
+					, "fold_validation": index_validation.tolist()
+					, "holdout_test": index_holdout_test
+				}
+
 		foldset = Foldset.create(
 			folds = folds
 			, fold_count = fold_count
@@ -893,13 +903,12 @@ class Foldset(BaseModel):
 		return foldset
 
 
-	"""
-	def to_pandas(id:int, fold_index:int):
-	"""
-	#- Only going to support fetching, by fold_index, one round of cross-validation at a time.
-	#- The Test 
-	"""
 
+	def to_pandas(id:int, fold_index:int):
+		"""
+		- Only going to support fetching by a single fold_index because even that 
+		  will have 3 dataframes/ arrays. Can loop easily on `range(fold_count)`.
+		"""
 		foldset = Foldset.get_by_id(id=id)
 		fold_count = foldset.fold_count
 
@@ -907,9 +916,34 @@ class Foldset(BaseModel):
 			if (0 > fold_index) or (fold_index > fold_count):
 				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has indices between 0 and " + str(fold_count) + "\n")
 
+		"""
+		s = foldset.splitset
+		supervision = s.supervision
+		f = s.featureset
 
-	fold_frames = Dataset.
-	return fold_frames
+		fold_frames = {}
+
+		# Flag:Optimize (switch to generators for memory usage)
+		# fold_frames = train_folds_combined, validation_fold, test_holdout
+		for split_name in splits:
+			
+			# placeholder for the frames/arrays
+			split_frames[split_name] = {}
+			
+			# fetch the sample indices for the split
+			split_samples = s.samples[split_name]
+			ff = f.to_pandas(samples=split_samples)
+			split_frames[split_name]["features"] = ff
+
+			if supervision == "supervised":
+				l = s.label
+				lf = l.to_pandas(samples=split_samples)
+				split_frames[split_name]["labels"] = lf
+		"""
+
+
+		fold_frames = Dataset.
+		return fold_frames
 
 	# def to_numpy():
 	"""
