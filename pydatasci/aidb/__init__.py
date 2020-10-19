@@ -81,7 +81,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Foldset, Algorithm])
+		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Foldset, Fold, Algorithm])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -613,6 +613,7 @@ class Splitset(BaseModel):
 	"""
 	- Belongs to a Featureset, not a Dataset, because the samples selected vary based on the stratification of the features during the split,
 	  and a Featureset already has a Dataset anyways.
+	- Here the `samples_` attributes contain indices.
 	"""
 	samples = JSONField()
 	sizes = JSONField()
@@ -800,23 +801,13 @@ class Splitset(BaseModel):
 		"""
 		split_frames = Splitset.to_pandas(id=id, splits=splits)
 
-		# packing a fresh dct because I don't trust updating dcts.
-		split_arrs = {}
+		for fold_name in split_frames.keys():
+			for set_name in split_frames[fold_name].keys():
+				frame = split_frames[fold_name][set_name]
+				split_frames[fold_name][set_name] = frame.to_numpy()
+				del frame
 
-		split_keys = split_frames.keys()
-		# split_names = train, test, validation
-		for split in split_keys:
-			set_keys = split_frames[split].keys()
-			split_arrs[split] = {}
-
-			# set_names = features, labels
-			for set_name in set_keys:
-				frame = split_frames[split][set_name]
-				arr = frame.to_numpy()
-				split_arrs[split][set_name] = arr
-				del frame # prevent memory usage doubling.
-
-		return split_arrs
+		return split_frames
 
 
 	def continuous_bins(array_to_bin, continuous_bin_count:int):
@@ -839,12 +830,12 @@ class Splitset(BaseModel):
 
 class Foldset(BaseModel):
 	"""
-	- Hmm, could give people the option to merge their train and validation splits? with a flag.
-	- Bug: integer keys in JSONField read as str (https://github.com/coleifer/peewee/issues/2282).
+	- Contains aggregate summary statistics and evaluate metrics for all Folds.
 	"""
-	folds = JSONField()
 	fold_count = IntegerField()
 	random_state = IntegerField()
+	#max_fold_per_bin = IntegerField()
+	#min_fold_per_bin = IntegerField()
 
 	splitset = ForeignKeyField(Splitset, backref='foldsets')
 
@@ -876,56 +867,47 @@ class Foldset(BaseModel):
 		if remainder != 0:
 			print("\nAdvice - The length <" + str(train_count) + "> of your training Split is not evenly divisible by the number of folds <" + str(fold_count) + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold, which only has <" + str(remainder) + "> samples in it.\n")
 
-		# This 'test' split that is untouched by the cross-validation process.
-		if s.has_test:
-			index_holdout_test = s.samples["test"]
-		if s.has_validation:
-			index_holdout_validation = s.samples["validation"]
-
-		skf = StratifiedKFold(n_splits=fold_count, shuffle=True, random_state=random_state)
-		splitz_gen = skf.split(arr_train_indices, arr_train_labels)
-		
-		# I hate dictionaries.
-		folds = {}
-		# Creating the dictionary index first I guess.
-		for i in range(fold_count):
-			folds[i] = {}
-		i = -1
-		for index_folds_train, index_fold_validation in splitz_gen:
-			i+=1
-			folds[i]["folds_train_combined"] = index_folds_train.tolist()
-			folds[i]["fold_validation"] = index_fold_validation.tolist()
-			if s.has_validation:
-				folds[i]["holdout_validation"] = index_holdout_validation
-			if s.has_test:
-				folds[i]["holdout_test"] = index_holdout_test
-
 		foldset = Foldset.create(
-			folds = folds
-			, fold_count = fold_count
+			fold_count = fold_count
 			, random_state = random_state
 			, splitset = s
 		)
+		# Create the folds. Don't want the end user to run two commands.
+		skf = StratifiedKFold(n_splits=fold_count, shuffle=True, random_state=random_state)
+		splitz_gen = skf.split(arr_train_indices, arr_train_labels)
+				
+		i = -1
+		for index_folds_train, index_fold_validation in splitz_gen:
+			i+=1
+			fold_samples = {}
+			
+			fold_samples["folds_train_combined"] = index_folds_train.tolist()
+			fold_samples["fold_validation"] = index_fold_validation.tolist()
+
+			fold = Fold.create(
+				fold_index = i
+				, samples = fold_samples 
+				, foldset = foldset
+			)
 		return foldset
 
 
 	def to_pandas(id:int, fold_index:int=None):
+		if fold_index is not None:
+			if (0 > fold_index) or (fold_index > fold_count):
+				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has fold indices between 0 and " + str(fold_count) + "\n")
+
 		foldset = Foldset.get_by_id(id)
 		fold_count = foldset.fold_count
 		folds = foldset.folds
-		folds = {int(k):v for k,v in folds.items()}
-
-		if fold_index is not None:
-			if (0 > fold_index) or (fold_index > fold_count):
-				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has indices between 0 and " + str(fold_count) + "\n")
 
 		s = foldset.splitset
 		supervision = s.supervision
 		featureset = s.featureset
-		
+
 		fold_frames = {}
 		if fold_index is not None:
-			fold_frames[i] = {}
+			fold_frames[fold_index] = {}
 		else:
 			for i in range(fold_count):
 				fold_frames[i] = {}
@@ -934,14 +916,14 @@ class Foldset(BaseModel):
 		for i in fold_frames.keys():
 			
 			fold = folds[i]
-			# fold = train_folds_combined, validation_fold, holdout_validation, holdout_test
-			for fold_name in fold.keys():
+			# here, `.keys()` are 'folds_train_combined' and 'fold_validation'
+			for fold_name in fold.samples.keys():
 
 				# placeholder for the frames/arrays
 				fold_frames[i][fold_name] = {}
 				
 				# fetch the sample indices for the split
-				folds_samples = fold[fold_name]
+				folds_samples = fold.samples[fold_name]
 				ff = featureset.to_pandas(samples=folds_samples)
 				fold_frames[i][fold_name]["features"] = ff
 
@@ -949,12 +931,29 @@ class Foldset(BaseModel):
 					l = s.label
 					lf = l.to_pandas(samples=folds_samples)
 					fold_frames[i][fold_name]["labels"] = lf
+		return fold_frames
+
+
+	def to_numpy(id:int, fold_index:int=None):
+		fold_frames = Foldset.to_pandas(id=id, fold_index=fold_index)
+		
+		for i in fold_frames.keys():
+			for fold_name in fold_frames[i].keys():
+				for set_name in fold_frames[i][fold_name].keys():
+					frame = fold_frames[i][fold_name][set_name]
+					fold_frames[i][fold_name][set_name] = frame.to_numpy()
+					del frame
 
 		return fold_frames
 
-	# def to_numpy():
-	
 
+
+	
+class Fold(BaseModel):
+	fold_index = IntegerField()
+	samples = JSONField() #samples_folds_combined_train, samples_fold_validation
+	
+	foldset = ForeignKeyField(Foldset, backref='folds')
 
 
 
