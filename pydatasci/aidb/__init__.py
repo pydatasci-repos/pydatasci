@@ -1,11 +1,11 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib, random
+import os, sqlite3, io, gzip, zlib, random, pickle
 from datetime import datetime
 
 #orm
 from peewee import *
-from playhouse.dataset import DataSet
+from playhouse.fields import PickleField
 from playhouse.sqlite_ext import SqliteExtDatabase, JSONField
 #etl
 import pyarrow
@@ -13,7 +13,9 @@ from pyarrow import parquet as pq
 from pyarrow import csv as pc
 import pandas as pd
 import numpy as np
+
 from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.preprocessing import OneHotEncoder
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -81,7 +83,7 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Foldset, Fold, Algorithm])
+		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Foldset, Fold, Algorithm, Hyperparamset, Hypercombination])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -372,21 +374,9 @@ class Dataset(BaseModel):
 	- Read to_tensor (pytorch and tf)? Or will numpy suffice?
 	"""
 
-	def make_label(id:int, column:str):
-		l = Label.from_dataset(dataset_id=id, column=column)
+	def make_label(id:int, columns:list):
+		l = Label.from_dataset(dataset_id=id, columns=columns)
 		return l
-
-
-	def fetch_label_by_name(id:int, label_name:str):
-		d = Dataset.get_by_id(id)
-		matching_labels = d.labels.select().where(Label.column==label_name)
-		count_matches = matching_labels.count()
-		
-		if count_matches > 0:
-			matching_label = matching_labels[0]
-		else:
-			matching_label = None
-		return matching_label
 
 
 	def make_featureset(
@@ -445,37 +435,50 @@ class Dataset(BaseModel):
 
 
 class Label(BaseModel):
-	column = CharField()
+	"""
+	- Label needs to accept multiple columns for datasets that are already One Hot Encoded.
+	"""
+	columns = JSONField()
 	#probabilities = JSONField() #result of semi-supervised learning.
 	
 	dataset = ForeignKeyField(Dataset, backref='labels')
 	
-	def from_dataset(dataset_id:int, column:str):
+	def from_dataset(dataset_id:int, columns:list):
 		d = Dataset.get_by_id(dataset_id)
+		d_cols = d.columns
 
-		# check for duplicates
-		matching_label = d.fetch_label_by_name(label_name=column)
-		if matching_label is not None:
-			raise ValueError("\nYikes - This Dataset already has a Label with target column named '" + column + "'.\nCannot create duplicate Label.\n")
+		# check columns exist
+		all_cols_found = all(col in d_cols for col in columns)
+		if not all_cols_found:
+			raise ValueError("\nYikes - You specified `columns` that do not exist in the Dataset.\n")
 
-		# verify that the column exists
-		d_columns = d.columns
-		column_found = column in d_columns
-		if column_found:
-			l = Label.create(dataset=d, column=column)
-			return l
-		else:
-			raise ValueError("\nYikes - Column name '" + column + "' not found in `Dataset.columns`.\n")
+		# check for duplicates	
+		cols_aplha = sorted(columns)
+		d_labels = d.labels
+		count = d_labels.count()
+		if count > 0:
+			for l in d_labels:
+				l_id = str(l.id)
+				l_cols = l.columns
+				l_cols_alpha = sorted(l_cols)
+				if cols_aplha == l_cols_alpha:
+					raise ValueError("\nYikes - This Dataset already has Label <id:" + l_id + "> with the same columns.\nCannot create duplicate.\n")
+
+		l = Label.create(
+			dataset = d
+			, columns = columns
+		)
+		return l
 
 
 	def to_pandas(id:int, samples:list=None):
 		l = Label.get_by_id(id)
-		l_col = l.column
+		l_cols = l.columns
 		dataset_id = l.dataset.id
 
 		lf = Dataset.to_pandas(
 			id = dataset_id
-			, columns = [l_col]
+			, columns = l_cols
 			, samples = samples
 		)
 		return lf
@@ -546,7 +549,7 @@ class Featureset(BaseModel):
 
 		"""
 		Check that this Dataset does not already have a Featureset that is exactly the same.
-		Less entries in `excluded_columns` so maybe it's faster to compare.
+		There are less entries in `excluded_columns` so maybe it's faster to compare that.
 		"""
 		if columns_excluded is not None:
 			cols_aplha = sorted(columns_excluded)
@@ -594,13 +597,13 @@ class Featureset(BaseModel):
 
 	def make_splitset(
 		id:int
-		, label_name:str = None
+		, label_id:int = None
 		, size_test:float = None
 		, size_validation:float = None
 	):
 		s = Splitset.from_featureset(
 			featureset_id = id
-			, label_name = label_name
+			, label_id = label_id
 			, size_test = size_test
 			, size_validation = size_validation
 		)
@@ -627,7 +630,7 @@ class Splitset(BaseModel):
 
 	def from_featureset(
 		featureset_id:int
-		, label_name:str = None
+		, label_id:int = None
 		, size_test:float = None
 		, size_validation:float = None
 		, continuous_bin_count:float = None
@@ -640,7 +643,7 @@ class Splitset(BaseModel):
 			
 		
 		if (size_validation is not None) and (size_test is None):
-			raise ValueError("\nYikes - you specified a `size_validation` without setting a `size_test`.")
+			raise ValueError("\nYikes - you specified a `size_validation` without setting a `size_test`.\n")
 
 		if size_validation is not None:
 			if (size_validation <= 0.0) or (size_validation >= 1.0):
@@ -677,7 +680,7 @@ class Splitset(BaseModel):
 		samples = {}
 		sizes = {}
 
-		if label_name is None:
+		if label_id is None:
 			has_test = False
 			supervision = "unsupervised"
 			l = None
@@ -688,19 +691,24 @@ class Splitset(BaseModel):
 				samples["train"] = indices_lst_train
 				sizes["train"] = {"percent": 1.00, "count": row_count}
 		else:
-			# Splits generate different samples each time, so we do not need to prevent duplicates on the same label_name.
-			l = Dataset.fetch_label_by_name(id=d_id, label_name=label_name)
-			if l is None:
-				raise ValueError("\nYikes - there is no Label with a `column` attribute named '" + label_name + "'\n")
+			# Splits generate different samples each time, so we do not need to prevent duplicates that use the same Label.
+			l = Label.get_by_id(label_id)
 
 			if size_test is None:
 				size_test = 0.25
 			has_test = True
 			supervision = "supervised"
 
-			l_id = l.id
-			l_col = l.column 
-			arr_l = Dataset.to_numpy(id=d_id, columns=[l_col])
+			arr_l = l.to_numpy()
+			# check for OHE cols and reverse them so we can still stratify.
+			if arr_l.shape[1] > 1:
+				encoder = OneHotEncoder(sparse=False)
+				arr_l = encoder.fit_transform(arr_l)
+				arr_l = np.argmax(arr_l, axis=1)
+				# argmax flattens the array, so reshape it to array of arrays.
+				count = arr_l.shape[0]
+				l_cat_shaped = arr_l.reshape(count, 1)
+			# OHE dtype returns as int64
 			arr_l_dtype = arr_l.dtype
 
 			if (arr_l_dtype == 'float32') or (arr_l_dtype == 'float64'):
@@ -711,6 +719,7 @@ class Splitset(BaseModel):
 			- `sklearn.model_selection.train_test_split` = https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html
 			- `shuffle` happens before the split. Although preserves a df's original index, we don't need to worry about that because we are providing our own indices.
 			"""
+
 			features_train, features_test, labels_train, labels_test, indices_train, indices_test = train_test_split(
 				arr_f, arr_l, arr_idx
 				, test_size = size_test
@@ -834,8 +843,8 @@ class Foldset(BaseModel):
 	"""
 	fold_count = IntegerField()
 	random_state = IntegerField()
-	#max_fold_per_bin = IntegerField()
-	#min_fold_per_bin = IntegerField()
+	#max_samples_per_bin = IntegerField()
+	#min_samples_per_bin = IntegerField()
 
 	splitset = ForeignKeyField(Splitset, backref='foldsets')
 
@@ -950,15 +959,51 @@ class Foldset(BaseModel):
 
 	
 class Fold(BaseModel):
+	"""
+	- A Fold is 1 of many cross-validation sets generated as part of a Foldset.
+	- The `samples` attribute contains the indices of `folds_train_combined` and `fold_validation`, 
+	  where `fold_validation` is the rotating fold that gets left out.
+	"""
 	fold_index = IntegerField()
-	samples = JSONField() #samples_folds_combined_train, samples_fold_validation
+	samples = JSONField()
 	
 	foldset = ForeignKeyField(Foldset, backref='folds')
 
 
 
+
 class Algorithm(BaseModel):
+	"""
+	- Encoders: sklearn.preprocessing.LabelEncoder, sklearn.preprocessing.OneHotEncoder
+	- Scalers: sklearn.preprocessing.StandardScaler
+	"""
 	name = CharField()
+	#encoder_name, encoder_params{"sparse":False}
+	#scaler_name, scaler_params
+	#^ this assumes that the algorithm has knowledge of the label and dataset... hmm
+	build_model_function = PickleField()
+	train_model_function = PickleField()
+	evaluate_model_function = PickleField()
+
+
+
+
+class Hyperparamset(BaseModel):
+	"""
+	different params for build and train?
+	"""
+	param_count = IntegerField()
+	raw_hyperparams = JSONField()
+	#possible_combination_count = IntegerField()
+
+
+
+
+class Hypercombination(BaseModel):
+	combination_index = IntegerField()
+	hyperparams = JSONField()
+
+	#hyperparamset = ForeignKeyField(Hyperparamset, backref='hypercombinations')
 
 
 
