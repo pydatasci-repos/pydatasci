@@ -83,7 +83,10 @@ def create_db():
 	if table_count > 0:
 		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
 	else:
-		db.create_tables([Job, Dataset, Label, Featureset, Splitset, Foldset, Fold, Algorithm, Hyperparamset, Hypercombination])
+		db.create_tables([
+			Dataset, Label, Featureset, 
+			Splitset, Foldset, Fold, 
+			Algorithm, Hyperparamset, Hypercombination, Preprocess, Job])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -617,6 +620,8 @@ class Splitset(BaseModel):
 	- Belongs to a Featureset, not a Dataset, because the samples selected vary based on the stratification of the features during the split,
 	  and a Featureset already has a Dataset anyways.
 	- Here the `samples_` attributes contain indices.
+
+	-ToDo: store and visualize distributions of each column in training split, including label.
 	"""
 	samples = JSONField()
 	sizes = JSONField()
@@ -695,7 +700,7 @@ class Splitset(BaseModel):
 			l = Label.get_by_id(label_id)
 
 			if size_test is None:
-				size_test = 0.25
+				size_test = 0.30
 			has_test = True
 			supervision = "supervised"
 
@@ -843,8 +848,8 @@ class Foldset(BaseModel):
 	"""
 	fold_count = IntegerField()
 	random_state = IntegerField()
-	#max_samples_per_bin = IntegerField()
-	#min_samples_per_bin = IntegerField()
+	#ToDo: max_samples_per_bin = IntegerField()
+	#ToDo: min_samples_per_bin = IntegerField()
 
 	splitset = ForeignKeyField(Splitset, backref='foldsets')
 
@@ -972,17 +977,60 @@ class Fold(BaseModel):
 
 
 
+class Preprocess(BaseModel):
+	"""
+	- Should not be happening prior to Dataset persistence because you need to do it after the split to avoid bias.
+	- For example, encoder.fit() only on training split - then .transform() train, validation, and test. 
+	
+	- ToDo: Need a standard way to reference the features and labels of various splits.
+	- ToDo: Could either specify columns or dtypes to be encoded?
+	- ToDo: A list of scalers with specific columns or dtypes in the params? <-- sklearn...encoder.get_params(dtype=numpy.float64)
+	"""
+	description = CharField(null=True)
+	encode_features_function = PickleField(null=True)
+	encode_labels_function = PickleField(null=True) 
+
+	splitset = ForeignKeyField(Splitset, backref='preprocesses')
+
+	def from_splitset(
+		splitset_id:int
+		, description:str = None
+		, encode_features_function:object = None
+		, encode_labels_function:object = None
+	):
+		if (encode_features_function is None) and (encode_labels_function is None):
+			raise ValueError("\nYikes - Can't have both `encode_features_function` and `encode_labels_function` set to `None`.\n")
+
+		s = Splitset.get_by_id(splitset_id)
+		s_label = s.label
+
+		if (s_label is None) and (encode_labels_function is not None):
+			raise ValueError("\nYikes - An `encode_labels_function` was provided, but this Splitset has no Label.\n")
+
+		#check if it has kwargs set and trip a bool flag?
+
+		# verify that they are of type function?
+		p = Preprocess.create(
+			splitset = splitset
+			, description = description
+			, encode_features_function = encode_features_function
+			, encode_labels_function = encode_labels_function
+		)
+
+
+
+
+
+
+
 class Algorithm(BaseModel):
+	"""		
+	# It would be cool to dynamically change the number of layers as a hyperparam.
+	# I guess it would be easier to throw 2 models into the mix though.
 	"""
-	- Encoders: sklearn.preprocessing.LabelEncoder, sklearn.preprocessing.OneHotEncoder
-	- Scalers: sklearn.preprocessing.StandardScaler
-	"""
-	name = CharField()
-	#encoder_name, encoder_params{"sparse":False}
-	#scaler_name, scaler_params
-	#^ this assumes that the algorithm has knowledge of the label and dataset... hmm
+	description = CharField()
 	build_model_function = PickleField()
-	train_model_function = PickleField()
+	train_model_function = PickleField()# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	evaluate_model_function = PickleField()
 
 
@@ -990,11 +1038,24 @@ class Algorithm(BaseModel):
 
 class Hyperparamset(BaseModel):
 	"""
-	different params for build and train?
+	- Not glomming this together with Algorithm and Preprocess because you can keep the Algorithm the same,
+	  while running many different batches of hyperparams.
+	- `repeat_count` is the number of times to run a model, sometimes you just get stuck at local minimas.
+	- `param_count` is the number of paramets that are being hypertuned.
+	- `possible_combos_count` is the number of possible combinations of parameters.
+
+	- On setting kwargs with `**` and a dict: https://stackoverflow.com/a/29028601/5739514
 	"""
+	description = CharField()
 	param_count = IntegerField()
-	raw_hyperparams = JSONField()
-	#possible_combination_count = IntegerField()
+	repeat_count = IntegerField()
+	possible_combos_count = IntegerField()
+	# strategy... all/ random. this would generate a different dict with less params to try that should be persisted for transparency.
+
+	encode_features_params = JSONField()
+	encode_labels_params = JSONField()
+	build_model_params = JSONField()
+	train_model_params = JSONField()
 
 
 
@@ -1003,10 +1064,27 @@ class Hypercombination(BaseModel):
 	combination_index = IntegerField()
 	hyperparams = JSONField()
 
-	#hyperparamset = ForeignKeyField(Hyperparamset, backref='hypercombinations')
+
+	hyperparamset = ForeignKeyField(Hyperparamset, backref='hypercombinations')
+
+
+
+"""
+class Environment(BaseModel)?
+	- Even in local envs, you can have different pyenvs.
+	- Check if they are imported or not at the start.
+	- Check if they are installed or not at the start.
+	"""
+	#dependencies_packages = JSONField() # list to pip install
+	#dependencies_import = JSONField() # list of strings to import
+	#dependencies_py_vers = CharField() # e.g. '3.7.6' for tensorflow.
 
 
 
 
 class Job(BaseModel):
 	status = CharField()
+
+	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
+
+

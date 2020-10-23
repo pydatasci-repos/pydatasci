@@ -1,6 +1,7 @@
 ![PyDataSci (wide)](/images/logo_pds_wide.png)
 
 ---
+*pre-alpha; in active development*
 
 # Value Proposition
 *PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
@@ -30,11 +31,12 @@ aidb.create_db()
 ## Functionality
 - [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
 - [Done] Split samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
-- Derive informative featuresets from that dataset using supervised and unsupervised methods.
-- Queue hypertuning jobs and batches based on hyperparameter combinations.
-- Evaluate and save the performance metrics of each model.
-- Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
-- Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
+- [In progress] Preprocess splits with tunable parameters.
+- [In progress] Queue hypertuning jobs and batches based on hyperparameter combinations.
+- [ToDo] Evaluate and save the performance metrics of each model. 
+- [ToDo] Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
+- [Future] Derive informative featuresets from that dataset using supervised and unsupervised methods.
+- [Future] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
 ![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
@@ -178,21 +180,22 @@ arr[:4]
 
 > For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-### 3. Select a `Label` column.
+### 3. Select a `Label` column(s).
 
 From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
 ```python
 # Implicit IDs
-label = dataset.make_label(column='species')
+label_column = 'species'
+label = dataset.make_label(columns=[label_column])
 
 # Explicit IDs
-label = aidb.Label.from_dataset(dataset_id=1, column='species')
-
-label_col = label.column
+label = aidb.Label.from_dataset(dataset_id=1, columns=[label_column])
 ```
 
-Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
+> Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
+
+> Labels accept multiple columns for situations like one-hot encoding (OHE).
 
 
 ### 4. Extract `Featureset` columns.
@@ -203,13 +206,13 @@ Here, we'll just exclude a Label column in preparation for supervised learning, 
 
 ```python
 # Implicit IDs
-featureset = dataset.make_featureset(exclude_columns=[label_col])
+featureset = dataset.make_featureset(exclude_columns=[label_column])
 
 # Explicit IDs
 featureset = aidb.Featureset.from_dataset(
 	dataset_id = 1
 	, include_columns = None
-	, exclude_columns = ['species']
+	, exclude_columns = [label_column]
 )
 
 >>> featureset.columns
@@ -238,15 +241,15 @@ Divide the `Dataset` rows into `Splitsets` based on how you want to train, valid
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 
 ```python
-splitset_train75_test25 = featureset.make_splitset(label_name='species')
+splitset_train75_test25 = featureset.make_splitset(label_id=label.id)
 
 splitset_train70_test30 = featureset.make_splitset(
-	label_name = 'species'
+	label_id = label.id
 	, size_test = 0.30
 )
 
 splitset_train68_val12_test20 = featureset.make_splitset(
-	label_name='species'
+	label_id = label.id
 	, size_test = 0.20
 	, size_validation = 0.12
 )
@@ -257,7 +260,7 @@ splitset_unsupervised = featureset.make_splitset()
 > Label-based stratification is used to ensure equally distributed label classes for both categorical and continuous data.
 
 > The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
-> - If you leave `size_test=None`, it will default to `0.25` when a Label is provided.
+> - If you leave `size_test=None`, it will default to `0.30` when a Label is provided.
 > - You cannot specify `size_validation` without also specifying `size_test`.
 
 Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. Note: this will return a `dict` of either data frames or arrays.
@@ -294,14 +297,20 @@ Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. 
 }
 ```
 
-
-### 6. Create an `Algorithm` aka model to fit to your splits.
-
-
-### 7. Create combinations of `Hyperparamsets` for your algorithms.
+### 6. Optionally, create a `Preprocess`.
+If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods. If you already 
 
 
-### 8. Create a `Batch` of `Job`'s to keep track of training.
+### 7. Create an `Algorithm` aka model to fit to your splits.
+
+
+### 8. Create combinations of `Hyperparamsets` for your algorithms.
+
+
+### 9. Create a `Batch` of `Job`'s to keep track of training.
+
+
+### 10. Visually compare the performance of your hypertuned Algorithms.
 
 ---
 
