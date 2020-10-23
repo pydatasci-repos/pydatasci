@@ -442,6 +442,7 @@ class Label(BaseModel):
 	- Label needs to accept multiple columns for datasets that are already One Hot Encoded.
 	"""
 	columns = JSONField()
+	column_count = IntegerField()
 	#probabilities = JSONField() #result of semi-supervised learning.
 	
 	dataset = ForeignKeyField(Dataset, backref='labels')
@@ -467,9 +468,12 @@ class Label(BaseModel):
 				if cols_aplha == l_cols_alpha:
 					raise ValueError("\nYikes - This Dataset already has Label <id:" + l_id + "> with the same columns.\nCannot create duplicate.\n")
 
+		column_count = len(columns)
+
 		l = Label.create(
 			dataset = d
 			, columns = columns
+			, column_count = column_count
 		)
 		return l
 
@@ -984,19 +988,20 @@ class Preprocess(BaseModel):
 	
 	- ToDo: Need a standard way to reference the features and labels of various splits.
 	- ToDo: Could either specify columns or dtypes to be encoded?
-	- ToDo: A list of scalers with specific columns or dtypes in the params? <-- sklearn...encoder.get_params(dtype=numpy.float64)
+	- ToDo: Specific columns or dtypes in the params? <-- sklearn...encoder.get_params(dtype=numpy.float64)
+	- ToDo: Multiple encoders for multiple dtypes?
 	"""
 	description = CharField(null=True)
-	encode_features_function = PickleField(null=True)
-	encode_labels_function = PickleField(null=True) 
+	encoder_features = PickleField(null=True)
+	encoder_labels = PickleField(null=True) 
 
 	splitset = ForeignKeyField(Splitset, backref='preprocesses')
 
 	def from_splitset(
 		splitset_id:int
 		, description:str = None
-		, encode_features_function:object = None
-		, encode_labels_function:object = None
+		, encoder_features:object = None
+		, encoder_labels:object = None
 	):
 		if (encode_features_function is None) and (encode_labels_function is None):
 			raise ValueError("\nYikes - Can't have both `encode_features_function` and `encode_labels_function` set to `None`.\n")
@@ -1007,28 +1012,30 @@ class Preprocess(BaseModel):
 		if (s_label is None) and (encode_labels_function is not None):
 			raise ValueError("\nYikes - An `encode_labels_function` was provided, but this Splitset has no Label.\n")
 
-		#check if it has kwargs set and trip a bool flag?
+		type_label_encoder = type(encoder_labels)
+		if (type_label_encoder == 'sklearn.preprocessing._encoders.OneHotEncoder'):
+			s_label_col_count = s_label.column_count
+			if s_label_col_count > 1:
+				raise ValueError("\nYikes - `sklearn.preprocessing.OneHotEncoder` expects 1 column, but your Label already has multiple columns.\n")
 
-		# verify that they are of type function?
 		p = Preprocess.create(
 			splitset = splitset
 			, description = description
-			, encode_features_function = encode_features_function
-			, encode_labels_function = encode_labels_function
+			, encoder_features = encoder_features
+			, encoder_labels = encoder_labels
 		)
-
-
-
+		return p
 
 
 
 
 class Algorithm(BaseModel):
 	"""		
-	# It would be cool to dynamically change the number of layers as a hyperparam.
+	# It would be cool to dynamically change the number of layers as a hyperparam. 
+	  would require params to be a pickle field with something like `extra layers` and kwargs. super messy.
 	# I guess it would be easier to throw 2 models into the mix though.
 	"""
-	description = CharField()
+	description = CharField(null=True)
 	build_model_function = PickleField()
 	train_model_function = PickleField()# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	evaluate_model_function = PickleField()
@@ -1046,7 +1053,7 @@ class Hyperparamset(BaseModel):
 
 	- On setting kwargs with `**` and a dict: https://stackoverflow.com/a/29028601/5739514
 	"""
-	description = CharField()
+	description = CharField(null=True)
 	param_count = IntegerField()
 	repeat_count = IntegerField()
 	possible_combos_count = IntegerField()
@@ -1062,6 +1069,7 @@ class Hyperparamset(BaseModel):
 
 class Hypercombination(BaseModel):
 	combination_index = IntegerField()
+	favorite = BooleanField()
 	hyperparams = JSONField()
 
 
