@@ -19,9 +19,9 @@ aidb.create_db()
 ```
 
 ## Mission
-* **Empowering Universities/ Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
+* **Empowering Universities & Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
-* **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package.<br /><br />
+* **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package. Submit your *aidb* database file alongside your publications/ papers and model zoo entries as a proof.<br /><br />
 
 * **Queue Hypertuning Jobs**<br />Queue many hypertuning jobs locally, or delegate big jobs to the cloud to run in parallel by setting `cloud_queue = True`.<br /><br />
 
@@ -32,6 +32,7 @@ aidb.create_db()
 ![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
 
 ## Functionality
+*Initially focusing on tabular data before expanding to multi-file use cases.*
 - [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
 - [Done] Split samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
 - [In progress] Preprocess splits with tunable parameters.
@@ -69,11 +70,12 @@ _Starting from the command line:_
 $ pip install --upgrade pydatasci
 $ python
 ```
-_Once inside the Python shell:_
+_Once inside a Python shell:_
 ```python
 >>> import pydatasci as pds
 >>> pds.create_folder()
 >>> pds.create_config()
+
 >>> from pydatasci import aidb
 >>> aidb.create_db()
 ```
@@ -100,6 +102,7 @@ When deleting the database, you need to either reload the `aidb` module or resta
 ```python
 >>> from pydatasci import aidb
 >>> aidb.delete_db(True)
+
 >>> from importlib import reload
 >>> reload(aidb)
 >>> create_db()
@@ -122,7 +125,7 @@ from pydatasci import aidb
 Supported tabular file formats include CSV, [TSV](https://stackoverflow.com/a/9652858/5739514), [Apache Parquet](https://parquet.apache.org/documentation/latest/).
 
 ```python
-# From files
+# From a file.
 dataset = aidb.Dataset.from_file(
 	path = 'iris.tsv' # files must have column names as their first row
 	, file_format = 'tsv'
@@ -131,7 +134,7 @@ dataset = aidb.Dataset.from_file(
 	, dtype = 'float64' # or a dict or dtype by column name.
 )
 
-# From in-memory structures
+# From an in-memory data structure.
 dataset = aidb.Dataset.from_pandas(
 	dataframe = df
 	, file_format = 'csv'
@@ -184,9 +187,9 @@ arr[:4]
 
 > For the sake of simplicity, we are reading into NumPy via Pandas. That way, if we want to revert to a simpler ndarray in the future, then we won't have to rewrite the function to read NumPy.
 
-### 3. Select a `Label` column(s).
+### 3. Select the `Label` column(s).
 
-From a Dataset, pick a column that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
+From a Dataset, pick the column(s) that you want to train against/ predict. If you are planning on training an unsupervised model, then you don't need to do this.
 
 ```python
 # Implicit IDs
@@ -202,7 +205,7 @@ label = aidb.Label.from_dataset(dataset_id=1, columns=[label_column])
 > Labels accept multiple columns for situations like one-hot encoding (OHE).
 
 
-### 4. Extract `Featureset` columns.
+### 4. Select the `Featureset` column(s).
 
 Creating a Featureset won't duplicate your data! It simply records the `columns` to be used in training. 
 
@@ -301,20 +304,23 @@ Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. 
 }
 ```
 
-### 6. Optionally, create a `Preprocess`.
+### 6. Optionally, create `Folds` of samples for cross-fold validation.
+
+
+### 7. Optionally, create a `Preprocess`.
 If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods. If you already 
 
 
-### 7. Create an `Algorithm` aka model to fit to your splits.
+### 8. Create an `Algorithm` aka model to fit to your splits.
 
 
-### 8. Create combinations of `Hyperparamsets` for your algorithms.
+### 9. Create combinations of `Hyperparamsets` for your algorithms.
 
 
-### 9. Create a `Batch` of `Job`'s to keep track of training.
+### 10. Create a `Batch` of `Job`'s to keep track of training.
 
 
-### 10. Visually compare the performance of your hypertuned Algorithms.
+### 11. Visually compare the performance of your hypertuned Algorithms.
 
 ---
 
