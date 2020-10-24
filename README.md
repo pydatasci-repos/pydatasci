@@ -4,7 +4,7 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice ML without the coding overhead.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice machine learning without the coding overhead. So hypertune to your heart's content, visually compare models, and know that you've found the best one with the proof to back it up.
 
 ## TLDR
 ```
@@ -19,14 +19,17 @@ aidb.create_db()
 ```
 
 ## Mission
-* **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, sample (index), split, fold, parameter, run, model, and result - is automatically persisted in a lightweight, file-based database that is setup when you import the package. So hypertune to your heart's content, visually compare models, and know that you've found the best one with the proof to back it up.<br /><br />
+* **Empowering Universities/ Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
 
-* **Local-First**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
+* **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package.<br /><br />
 
-* **Code-Integrated**<br />We don’t disrupt the natural workflow of users by forcing them into the confines of a GUI app or specific IDE. Instead, we weave automated tracking into their existing code so that *PyDataSci* is compatible with any data science toolset.<br /><br />
+* **Queue Hypertuning Jobs**<br />Queue many hypertuning jobs locally, or delegate big jobs to the cloud to run in parallel by setting `cloud_queue = True`.<br /><br />
 
-* **Scale-Em-If-You-Gottem**<br />Queue many hypertuning jobs locally, or run big jobs in parallel in the cloud by setting `cloud_queue = True`.<br /><br />
+* **Visually Compare Performance Metrics**<br />Compare models using pre-defined plots for assessing performance, including: quantitative metrics (e.g. accuracy, loss, variance, precision, recall, etc.), training histories, and confusion/ contingency matrices.<br /><br />
 
+* **Code-Integrated & Agnostic**<br />We don’t disrupt the natural workflow of data scientists by forcing them into the confines of a GUI app or specific IDE. Instead, we weave automated tracking into their existing scripts so that *PyDataSci* is compatible with any data science toolset.<br /><br />
+
+![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
 
 ## Functionality
 - [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
@@ -39,13 +42,14 @@ aidb.create_db()
 - [Future] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
-![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
+
 
 ## Painpoint Solved
 At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. 
 
 Slamming my head on the keyboard a few times, I thought to myself "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it. I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the integration processes were too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
 
+![Cryptex](/images/cryptex.png)
 
 ## Community
 *Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks.

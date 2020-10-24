@@ -15,7 +15,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import *
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -86,7 +86,7 @@ def create_db():
 		db.create_tables([
 			Dataset, Label, Featureset, 
 			Splitset, Foldset, Fold, 
-			Algorithm, Hyperparamset, Hypercombination, Preprocess, Job])
+			Algorithm, Hyperparamset, Hyperparamcombo, Preprocess, Job])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -1003,13 +1003,13 @@ class Preprocess(BaseModel):
 		, encoder_features:object = None
 		, encoder_labels:object = None
 	):
-		if (encode_features_function is None) and (encode_labels_function is None):
+		if (encoder_features is None) and (encoder_labels is None):
 			raise ValueError("\nYikes - Can't have both `encode_features_function` and `encode_labels_function` set to `None`.\n")
 
 		s = Splitset.get_by_id(splitset_id)
 		s_label = s.label
 
-		if (s_label is None) and (encode_labels_function is not None):
+		if (s_label is None) and (encoder_labels is not None):
 			raise ValueError("\nYikes - An `encode_labels_function` was provided, but this Splitset has no Label.\n")
 
 		type_label_encoder = type(encoder_labels)
@@ -1019,7 +1019,7 @@ class Preprocess(BaseModel):
 				raise ValueError("\nYikes - `sklearn.preprocessing.OneHotEncoder` expects 1 column, but your Label already has multiple columns.\n")
 
 		p = Preprocess.create(
-			splitset = splitset
+			splitset = s
 			, description = description
 			, encoder_features = encoder_features
 			, encoder_labels = encoder_labels
@@ -1034,11 +1034,12 @@ class Algorithm(BaseModel):
 	# It would be cool to dynamically change the number of layers as a hyperparam. 
 	  would require params to be a pickle field with something like `extra layers` and kwargs. super messy.
 	# I guess it would be easier to throw 2 models into the mix though.
+	# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	"""
 	description = CharField(null=True)
-	build_model_function = PickleField()
-	train_model_function = PickleField()# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
-	evaluate_model_function = PickleField()
+	function_model_build = PickleField()
+	function_model_train = PickleField()
+	function_model_evaluate = PickleField()
 
 
 
@@ -1054,38 +1055,34 @@ class Hyperparamset(BaseModel):
 	- On setting kwargs with `**` and a dict: https://stackoverflow.com/a/29028601/5739514
 	"""
 	description = CharField(null=True)
-	param_count = IntegerField()
-	repeat_count = IntegerField()
-	possible_combos_count = IntegerField()
-	# strategy... all/ random. this would generate a different dict with less params to try that should be persisted for transparency.
+	#param_count = IntegerField()
+	#repeat_count = IntegerField()
+	#possible_combos_count = IntegerField()
+	#strategy = CharField() #all/ random. this would generate a different dict with less params to try that should be persisted for transparency.
 
-	encode_features_params = JSONField()
+	params_encode_features = JSONField(null=True)
+	params_encode_labels = JSONField(null=True)
+	params_model_build = JSONField()
+	params_model_train = JSONField()
+	params_model_evaluate = JSONField(null=True)
+
+	algorithm = ForeignKeyField(Algorithm, backref='hyperparamsets')
+	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='hyperparamsets')
+
+
+
+
+
+class Hyperparamcombo(BaseModel):
+	combination_index = IntegerField()
+	favorite = BooleanField()
+
+	params_encode_features_ = JSONField()
 	encode_labels_params = JSONField()
 	build_model_params = JSONField()
 	train_model_params = JSONField()
 
-
-
-
-class Hypercombination(BaseModel):
-	combination_index = IntegerField()
-	favorite = BooleanField()
-	hyperparams = JSONField()
-
-
-	hyperparamset = ForeignKeyField(Hyperparamset, backref='hypercombinations')
-
-
-
-"""
-class Environment(BaseModel)?
-	- Even in local envs, you can have different pyenvs.
-	- Check if they are imported or not at the start.
-	- Check if they are installed or not at the start.
-	"""
-	#dependencies_packages = JSONField() # list to pip install
-	#dependencies_import = JSONField() # list of strings to import
-	#dependencies_py_vers = CharField() # e.g. '3.7.6' for tensorflow.
+	hyperparamset = ForeignKeyField(Hyperparamset, backref='hyperparamcombos')
 
 
 
@@ -1093,6 +1090,23 @@ class Environment(BaseModel)?
 class Job(BaseModel):
 	status = CharField()
 
+	algorithm = ForeignKeyField(Algorithm, backref='jobs')
+	hyperparamcombo = ForeignKeyField(Hyperparamcombo, backref='jobs') #<-- Hyperparamset foldset through splitset 
+	splitset = ForeignKeyField(Splitset, backref='jobs')
+	fold = ForeignKeyField(Fold, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
 	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
+	#environment = ForeignKeyField(Environment, deferrable='INITIALLY DEFERRED', null=True, backref='environments')
 
 
+
+
+"""
+class Environment(BaseModel)?
+	# Even in local envs, you can have different pyenvs.
+	# Check if they are imported or not at the start.
+	# Check if they are installed or not at the start.
+	
+	dependencies_packages = JSONField() # list to pip install
+	dependencies_import = JSONField() # list of strings to import
+	dependencies_py_vers = CharField() # e.g. '3.7.6' for tensorflow.
+"""
