@@ -50,7 +50,6 @@ At the time, I was deep in an unstable, remote Linux workspace trying to finish 
 
 Slamming my head on the keyboard a few times, I thought to myself "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it. I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the integration processes were too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
 
-![Cryptex](/images/cryptex.png)
 
 ## Community
 *Much to automate there is. Simple it must be.* ML is a broad space with a lot of challenges to solve. Let us know if you want to get involved. We plan to host monthly dev jam sessions and data science lightning talks.
@@ -145,7 +144,7 @@ dataset = aidb.Dataset.from_pandas(
 )
 
 dataset = aidb.Dataset.from_numpy(
-    ndarray = arr
+	ndarray = arr
 	, file_format = 'parquet'
 	, name = 'chunking plants'
 	, perform_gzip = True
@@ -178,10 +177,10 @@ arr = dataset.to_numpy()
 arr[:4]
 
 # Explicit IDs
-df = aidb.Dataset.to_pandas(id=1)
+df = aidb.Dataset.to_pandas(id=dataset.id)
 df.head()
 
-arr = aidb.Dataset.to_numpy(id=1)
+arr = aidb.Dataset.to_numpy(id=dataset.id)
 arr[:4]
 ```
 
@@ -197,7 +196,10 @@ label_column = 'species'
 label = dataset.make_label(columns=[label_column])
 
 # Explicit IDs
-label = aidb.Label.from_dataset(dataset_id=1, columns=[label_column])
+label = aidb.Label.from_dataset(
+	dataset_id=dataset.id
+	, columns=[label_column]
+)
 ```
 
 > Again, read a Label into memory with `to_pandas()` and `to_numpy()` methods.
@@ -217,7 +219,7 @@ featureset = dataset.make_featureset(exclude_columns=[label_column])
 
 # Explicit IDs
 featureset = aidb.Featureset.from_dataset(
-	dataset_id = 1
+	dataset_id = dataset.id
 	, include_columns = None
 	, exclude_columns = [label_column]
 )

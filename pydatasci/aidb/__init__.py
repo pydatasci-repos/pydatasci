@@ -1,6 +1,7 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib, random, pickle
+import os, sqlite3, io, gzip, zlib, random, pickle, itertools 
+from itertools import permutations
 from datetime import datetime
 
 #orm
@@ -1055,20 +1056,57 @@ class Hyperparamset(BaseModel):
 	- On setting kwargs with `**` and a dict: https://stackoverflow.com/a/29028601/5739514
 	"""
 	description = CharField(null=True)
-	#param_count = IntegerField()
-	#repeat_count = IntegerField()
-	#possible_combos_count = IntegerField()
-	#strategy = CharField() #all/ random. this would generate a different dict with less params to try that should be persisted for transparency.
+	param_combinations_count = IntegerField()
+	#repeat_count = IntegerField() # set to 1 by default.
+	#strategy = CharField() # set to all by default #all/ random. this would generate a different dict with less params to try that should be persisted for transparency.
 
-	params_encode_features = JSONField(null=True)
-	params_encode_labels = JSONField(null=True)
-	params_model_build = JSONField()
-	params_model_train = JSONField()
-	params_model_evaluate = JSONField(null=True)
+	hyperparameter_lists = JSONField()
 
 	algorithm = ForeignKeyField(Algorithm, backref='hyperparamsets')
 	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='hyperparamsets')
 
+	def from_algorithm(
+		algorithm_id:int
+		, hyperparameter_lists:dict
+		, preprocess_id:int = None
+		, description:str = None
+	):
+		a = Algorithm.get_by_id(algorithm_id)
+		if preprocess_id is not None:
+			p = Preprocess.get_by_id(preprocess_id)
+		else:
+			p = None
+
+		# construct the hyperparameter combinations
+		params_names = list(hyperparameter_lists.keys())
+		params_lists = list(hyperparameter_lists.values())
+		# from multiple lists, come up with every unique combination.
+		params_combos = list(itertools.product(*params_lists))
+		param_combinations_count = len(params_combos)
+
+		params_combos_dicts = []
+		# dictionary comprehension for making a dict from two lists.
+		for params in params_combos:
+			params_combos_dict = {params_names[i]: params[i] for i in range(len(params_names))} 
+			params_combos_dicts.append(params_combos_dict)
+		
+		# now that we have the metadata about combinations
+		hyperparamset = Hyperparamset.create(
+			algorithm = a
+			, preprocess = p
+			, description = description
+			, hyperparameter_lists = hyperparameter_lists
+			, param_combinations_count = param_combinations_count
+		)
+
+		for i, c in enumerate(params_combos_dicts):
+			Hyperparamcombo.create(
+				combination_index = i
+				, favorite = False
+				, hyperparameters = c
+				, hyperparamset = hyperparamset
+			)
+		return hyperparamset
 
 
 
@@ -1076,11 +1114,7 @@ class Hyperparamset(BaseModel):
 class Hyperparamcombo(BaseModel):
 	combination_index = IntegerField()
 	favorite = BooleanField()
-
-	params_encode_features_ = JSONField()
-	encode_labels_params = JSONField()
-	build_model_params = JSONField()
-	train_model_params = JSONField()
+	hyperparameters = JSONField()
 
 	hyperparamset = ForeignKeyField(Hyperparamset, backref='hyperparamcombos')
 
