@@ -35,9 +35,9 @@ aidb.create_db()
 *Initially focusing on tabular data before expanding to multi-file use cases.*
 - [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
 - [Done] Split samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
-- [In progress] Preprocess splits with tunable parameters.
+- [Done] Generate hyperparameter combinations for preprocessing, model building, model training, and model evaluation.
 - [In progress] Queue hypertuning jobs and batches based on hyperparameter combinations.
-- [ToDo] Evaluate and save the performance metrics of each model. 
+- [In progress] Evaluate and save the performance metrics of each model. 
 - [ToDo] Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
 - [Future] Derive informative featuresets from that dataset using supervised and unsupervised methods.
 - [Future] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
@@ -250,7 +250,7 @@ Divide the `Dataset` rows into `Splitsets` based on how you want to train, valid
 Again, creating a Splitset won't duplicate your data. It simply records the samples (aka rows) to be used in your train, validation, and test splits. 
 
 ```python
-splitset_train75_test25 = featureset.make_splitset(label_id=label.id)
+splitset_train70_test30 = featureset.make_splitset(label_id=label.id)
 
 splitset_train70_test30 = featureset.make_splitset(
 	label_id = label.id
@@ -271,6 +271,7 @@ splitset_unsupervised = featureset.make_splitset()
 > The `size_test` and `size_validation` parameters are provided to expedite splitting samples:
 > - If you leave `size_test=None`, it will default to `0.30` when a Label is provided.
 > - You cannot specify `size_validation` without also specifying `size_test`.
+> If you want more control over stratification of continuous features, then you can specify the number of `continuous_bin_count` for grouping.
 
 Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. Note: this will return a `dict` of either data frames or arrays.
 
@@ -307,19 +308,132 @@ Again, read a Splitset into memory with `to_pandas()` and `to_numpy()` methods. 
 ```
 
 ### 6. Optionally, create `Folds` of samples for cross-fold validation.
+*Reference the [scikit-learn documentation](https://scikit-learn.org/stable/modules/cross_validation.html) to learn more about folding.*
+![Cross Folds](/images/cross_folds.png)
+
+As seen in the image above, different cuts through the training data are produced while the test data remains untouched. The training data is divided into stratified folds where one fold is left out each time, while the test data is left untouched. 
+
+We refer to the left out fold as the `fold_validation` and the remaining training data as the `folds_train_combined`. The samples of the validation fold are still recorded if you wanted to generate performance metrics against them.
+
+> In a scenario where a validation split was specified in the original Splitset, the validation split is also untouched. Only the training data is folded. The implication is that you can have 2 validations in the form of the validation split and the validation fold.
+
+```python
+foldset = splitset_train68_val12_test20.make_foldset(fold_count=5)
+#generates `foldset.fold[0:4]`
+```
+
+Again, read a Foldset into memory with `to_pandas()` and `to_numpy()` methods. Note: this will return a `dict` of either data frames or arrays.
 
 
-### 7. Optionally, create a `Preprocess`.
-If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods. If you already 
+### 7. Create an `Algorithm` aka model.
+
+We'll use two variables in our functions: `**hyperdata` and `**hyperparameters`.
+
+- `**hyperdata` makes training and evaluation samples available to your model. It knows whether or not we specified validation splits in your Splitset as well as how to handle Folds.
+- `**hyperparameters` are simply variables that we specify with the values we want to experiment with.
+
+#### Create a function to build the model.
+
+Here you can see we specified the variables `l1_neuron_count`, `l2_neuron_count`, and `optimizer`. We also made an entire layer optional with a simple *if* statement on `l2_exists`!
+
+In a moment, we will make a dictionary of these variables, and they will be fed in via the `**hyperparameters` parameter.
+
+```python
+def function_model_build(**hyperparameters, **hyperdata):
+    training_size = train_features.shape[1]
+
+    model = Sequential()
+    model.add(Dense(l1_neuron_count, input_shape=(training_size,), activation='relu', kernel_initializer='he_uniform', name='fc1'))
+    if l2_exists is True:
+    	model.add(Dense(l2_neuron_count, activation='relu', kernel_initializer='he_uniform', name='fc2'))
+    model.add(Dense(3, activation='softmax', name='output'))
+
+    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
+```
+
+#### Create a function to train the model.
+
+```python
+def function_model_train(**hyperparameters, **hyperdata):
+    history = model.fit(
+        train_features
+        , train_labels
+        , validation_data = (
+            eval_features
+            , eval_labels
+        )
+        , verbose = 1
+        , batch_size = batch_size
+        , epochs = epochs
+    )
+    return history
+```
+> If you specified a validation split in your Splitset, then `eval_features` and `eval_labels` will point to your validation split, otherwise, it will point to your test split.
+> If your model doesn't provide an evaluation history then you don't need to specify it.
+
+#### Create a function to evaluate the model.
+
+```python
+def function_model_evaluate(**hyperparameters, **hyperdata):
+    results = model.evaluate(eval_features, eval_features, verbose=0)
+    return results
+```
+> Both validation and test splits will be fed through `eval_features` and `eval_labels`.
 
 
-### 8. Create an `Algorithm` aka model to fit to your splits.
+#### Pull it all together in creating the Algorithm.
 
+```python
+algorithm = aidb.Algorithm.create(
+    description = "dense with 1 or 2 layers"
+	, function_model_build = function_model_build
+	, function_model_train = function_model_train
+	, function_model_evaluate = function_model_evaluate
+)
+```
 
-### 9. Create combinations of `Hyperparamsets` for your algorithms.
+### 8. Optionally, create a `Preprocess`.
+If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods.
 
+```python
+# refactoring this
 
-### 10. Create a `Batch` of `Job`'s to keep track of training.
+preprocess = aidb.Preprocess.from_splitset(
+    splitset_id = splitset_id
+    , description = "standard scaling on features"
+    , encoder_features = encoder_features
+    , encoder_labels = encoder_labels
+)
+```
+
+### 9. Optionally, create combinations of `Hyperparamsets` for our model.
+
+Remember those variables we specified in our model functions? Here we provide values for them, which will be used in `**hyperparameters`.
+
+In the future, we will provide different strategies for generating and selecting parameters to experiment with.
+
+```python
+hyperparameter_lists = {
+    "l1_neuron_count": [9, 18]
+    , "l2_exists": [True, False]
+    , "l2_neuron_count": [9, 18]
+    , "optimizer": ["adamax", "adam"]
+    , "epochs": [30, 60, 90]
+    , "batch_size": [3, 5]
+}
+
+hyperparamset = aidb.Hyperparamset.from_algorithm(
+    algorithm_id = algorithm.id
+    , preprocess_id = preprocess.id
+    , description = "experimenting with neuron count, layers, and epoch count"
+	, hyperparameter_lists = hyperparameter_lists
+)
+```
+
+### 10. Create a queue of `Job`'s to keep track of training.
+
+#### When you are ready, run the Jobs.
 
 
 ### 11. Visually compare the performance of your hypertuned Algorithms.
