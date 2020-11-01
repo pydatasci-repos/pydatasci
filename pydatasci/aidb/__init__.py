@@ -87,7 +87,9 @@ def create_db():
 		db.create_tables([
 			Dataset, Label, Featureset, 
 			Splitset, Foldset, Fold, 
-			Algorithm, Hyperparamset, Hyperparamcombo, Preprocess, Job])
+			Algorithm, Hyperparamset, Hyperparamcombo, Preprocess, 
+			Batch, Job
+		])
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
@@ -1049,6 +1051,7 @@ class Hyperparamset(BaseModel):
 	"""
 	- Not glomming this together with Algorithm and Preprocess because you can keep the Algorithm the same,
 	  while running many different batches of hyperparams.
+	- An algorithm does not have to have a hyperparamset. It can used fixed parameters.
 	- `repeat_count` is the number of times to run a model, sometimes you just get stuck at local minimas.
 	- `param_count` is the number of paramets that are being hypertuned.
 	- `possible_combos_count` is the number of possible combinations of parameters.
@@ -1056,7 +1059,7 @@ class Hyperparamset(BaseModel):
 	- On setting kwargs with `**` and a dict: https://stackoverflow.com/a/29028601/5739514
 	"""
 	description = CharField(null=True)
-	param_combinations_count = IntegerField()
+	hyperparamcombo_count = IntegerField()
 	#repeat_count = IntegerField() # set to 1 by default.
 	#strategy = CharField() # set to all by default #all/ random. this would generate a different dict with less params to try that should be persisted for transparency.
 
@@ -1082,7 +1085,7 @@ class Hyperparamset(BaseModel):
 		params_lists = list(hyperparameter_lists.values())
 		# from multiple lists, come up with every unique combination.
 		params_combos = list(itertools.product(*params_lists))
-		param_combinations_count = len(params_combos)
+		hyperparamcombo_count = len(params_combos)
 
 		params_combos_dicts = []
 		# dictionary comprehension for making a dict from two lists.
@@ -1096,7 +1099,7 @@ class Hyperparamset(BaseModel):
 			, preprocess = p
 			, description = description
 			, hyperparameter_lists = hyperparameter_lists
-			, param_combinations_count = param_combinations_count
+			, hyperparamcombo_count = hyperparamcombo_count
 		)
 
 		for i, c in enumerate(params_combos_dicts):
@@ -1121,16 +1124,86 @@ class Hyperparamcombo(BaseModel):
 
 
 
-class Job(BaseModel):
+class Batch(BaseModel):
 	status = CharField()
+	job_count = IntegerField()
 
-	algorithm = ForeignKeyField(Algorithm, backref='jobs')
-	hyperparamcombo = ForeignKeyField(Hyperparamcombo, backref='jobs') #<-- Hyperparamset foldset through splitset 
-	splitset = ForeignKeyField(Splitset, backref='jobs')
+	
+	algorithm = ForeignKeyField(Algorithm, backref='batches') 
+	splitset = ForeignKeyField(Splitset, backref='batches')
+	# repeat_count means you could make a whole batch from one alg w no params.
+
+	hyperparamset = ForeignKeyField(Hyperparamset, deferrable='INITIALLY DEFERRED', null=True, backref='batches')
+	foldset = ForeignKeyField(Foldset, deferrable='INITIALLY DEFERRED', null=True, backref='batches')
+
+
+	def from_algorithm(
+		algorithm_id:int
+		, splitset_id:int
+		, hyperparamset_id:int = None
+		, foldset_id:int = None
+		, only_folded_training = False # avoid splitset.samples["train"].
+	):
+		algorithm = Algorithm.get_by_id(algorithm_id)
+		splitset = Splitset.get_by_id(splitset_id)
+
+		folds = [None]
+		if foldset_id is not None:
+			foldset =  Foldset.get_by_id(foldset_id)
+			foldset_splitset = foldset.splitset
+			if foldset_splitset != splitset:
+				raise ValueError("\nYikes - The Foldset <id:" + str(foldset_id) + "> and Splitset <id:" + str(splitset_id) + "> you provided are not related.\n")
+			folds = folds + list(foldset.folds)
+			if only_folded_training is True:
+				folds.remove(None)
+
+		if hyperparamset_id is not None:
+			hyperparamset = Hyperparamset.get_by_id(hyperparamset_id)
+			combos = list(hyperparamset.hyperparamcombos)
+		else:
+			combos = [None]
+
+		job_count = len(combos) * len(folds)
+
+		b = Batch.create(
+			status = "Not yet started"
+			, job_count = job_count
+			, algorithm = algorithm
+			, splitset = splitset
+			, hyperparamset = hyperparamset
+		)
+
+		# Both of these lists account for null scenarios.
+		for f in folds:
+			for c in combos:
+				Job.create(
+					status = "Not yet started"
+					, batch = b
+					, hyperparamcombo = c
+					, fold = f
+				)
+		return b
+
+	# execute
+	# status
+
+
+
+
+class Job(BaseModel):
+	"""
+	- Gets its Algorithm through the Batch.
+	- Saves its Model to a Result.
+	"""
+	status = CharField()
+	#log = CharField() #record failures
+
+	batch = ForeignKeyField(Batch, backref='jobs')
+	hyperparamcombo = ForeignKeyField(Hyperparamcombo, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
 	fold = ForeignKeyField(Fold, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
-	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
-	#environment = ForeignKeyField(Environment, deferrable='INITIALLY DEFERRED', null=True, backref='environments')
+	#preproc
 
+	# method to make a single job
 
 
 
