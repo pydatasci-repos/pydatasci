@@ -4,7 +4,7 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice machine learning without the coding overhead. So hypertune to your heart's content, visually compare models, and know that you've found the best one with the proof to back it up.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice machine learning without the coding overhead. So hypertune your cross-validated datasets to your heart's content, visually compare models, and know that you've found the best one with the proof to back it up.
 
 ## TLDR
 ```
@@ -431,9 +431,23 @@ hyperparamset = aidb.Hyperparamset.from_algorithm(
 )
 ```
 
-### 10. Create a queue of `Job`'s to keep track of training.
+### 10. Create a `Batch` of `Job`s to keep track of training.
+```python
+batch = aidb.Batch.from_algorithm(
+    algorithm_id = algorithm.id
+    , splitset_id = splitset.id
+    , hyperparamset_id = hyperparamset.id
+    , foldset_id = foldset.id
+    , only_folded_training = False
+)
+```
 
 #### When you are ready, run the Jobs.
+The jobs will be asynchronously executed on a background thread, so that you can continue to code on the main thread. You can poll the job status. 
+```python
+batch.execute()
+batch.get_status()
+```
 
 
 ### 11. Visually compare the performance of your hypertuned Algorithms.
