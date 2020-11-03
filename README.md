@@ -4,7 +4,8 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice machine learning without the coding overhead. So hypertune your cross-validated datasets to your heart's content, visually compare models, and know that you've found the best one with the proof to back it up.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice machine learning without the coding overhead. It brings the scientific method to data science to make artificial intelligence less artificial.
+
 
 ## TLDR
 ```
@@ -31,6 +32,7 @@ aidb.create_db()
 
 ![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
 
+
 ## Functionality
 *Initially focusing on tabular data before expanding to multi-file use cases.*
 - [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
@@ -42,7 +44,6 @@ aidb.create_db()
 - [Future] Derive informative featuresets from that dataset using supervised and unsupervised methods.
 - [Future] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
-
 
 
 ## Painpoint Solved
