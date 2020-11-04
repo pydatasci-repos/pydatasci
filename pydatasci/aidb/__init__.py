@@ -914,13 +914,15 @@ class Foldset(BaseModel):
 
 
 	def to_pandas(id:int, fold_index:int=None):
-		if fold_index is not None:
-			if (0 > fold_index) or (fold_index > fold_count):
-				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has fold indices between 0 and " + str(fold_count) + "\n")
-
 		foldset = Foldset.get_by_id(id)
 		fold_count = foldset.fold_count
 		folds = foldset.folds
+
+		if fold_index is not None:
+			if (0 > fold_index) or (fold_index > fold_count):
+				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has fold indices between 0 and " + str(fold_count - 1) + "\n")
+
+
 
 		s = foldset.splitset
 		supervision = s.supervision
@@ -1207,7 +1209,7 @@ class Job(BaseModel):
 	#preproc
 
 	# split into sub functions?
-	def execute_job(id:int):
+	def run(id:int):
 		j = Job.get_by_id(id)
 		algorithm = j.batch.algorithm
 		splitset = j.batch.splitset
@@ -1218,7 +1220,7 @@ class Job(BaseModel):
 		# 1. Fetch training samples.
 		if fold is not None:
 			foldset = fold.foldset
-			fold_samples_np = foldset.to_numpy(fold_index=fold.index)
+			fold_samples_np = foldset.to_numpy(fold_index=fold.fold_index)[0]
 
 			samples_train = fold_samples_np['folds_train_combined']
 			# This `samples_evaluate` is just for the training validation history.
