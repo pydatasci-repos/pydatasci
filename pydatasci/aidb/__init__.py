@@ -1,6 +1,6 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib, random, pickle, itertools 
+import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, threading
 from itertools import permutations
 from datetime import datetime
 
@@ -1176,7 +1176,7 @@ class Batch(BaseModel):
 			, hyperparamset = hyperparamset
 		)
 
-		# Both of these lists account for null scenarios.
+		# Both of these lists (folds, combos) already handle null scenarios.
 		for f in folds:
 			for c in combos:
 				Job.create(
@@ -1187,11 +1187,41 @@ class Batch(BaseModel):
 				)
 		return b
 
-	# execute(id)
-	# ^ for loop on job.execute(). will this release memory after each run?
 
-	# status
+	def get_statuses(id:int):
+		batch = Batch.get_by_id(id)
+		jobs = batch.jobs
+		statuses = {}
+		for j in jobs:
+			statuses[j.id] = j.status
+		return statuses
 
+
+	def run_jobs(id:int):
+		batch = Batch.get_by_id(id)
+		jobs = batch.jobs
+
+		# statuses = Batch.get_statuses(id)
+		# all_not_started = (set(statuses.values()) == {'Not yet started'})
+		# if all_not_started:
+		# 	Job.update(status="Queued").where(Job.batch == id).execute()
+			
+		def jobs_loop(jobs:list):
+			for j in jobs:
+				j.run()
+
+		thread_name = "aidb_batch_" + str(batch.id)
+		thread_names = [t.name for t in threading.enumerate()]
+		if thread_name in thread_names:
+			raise ValueError("\nYikes - Cannot start this Batch because it is already running.\n")
+
+		thread = threading.Thread(target=jobs_loop(jobs), name="aidb_batch_1")
+		thread.start()
+		
+		return batch.get_statuses()
+
+	def stop_jobs(id:int):
+		pass
 
 
 
@@ -1211,110 +1241,115 @@ class Job(BaseModel):
 	# split into sub functions?
 	def run(id:int):
 		j = Job.get_by_id(id)
-		algorithm = j.batch.algorithm
-		splitset = j.batch.splitset
-		preprocess = j.batch.hyperparamset.preprocess
-		hyperparamcombo = j.hyperparamcombo
-		fold = j.fold
-
-		# 1. Fetch training samples.
-		if fold is not None:
-			foldset = fold.foldset
-			fold_samples_np = foldset.to_numpy(fold_index=fold.fold_index)[0]
-
-			samples_train = fold_samples_np['folds_train_combined']
-			# This `samples_evaluate` is just for the training validation history.
-			# We will use the Splitset validation split to formally evaluate later.
-			samples_evaluate = fold_samples_np['fold_validation']
+		if (j.status == "Succeeded") or (j.status == "Running"):
+			return j
 		else:
-			samples_train = splitset.to_numpy(splits=['train'])['train']
-			if splitset.has_validation:
-				samples_evaluate = splitset.to_numpy(splits=['validation'])['validation']
-			elif splitset.supervision == "supervised":
-				samples_evaluate = splitset.to_numpy(splits=['test'])['test']
-			else:
-				samples_evaluate = None
+			algorithm = j.batch.algorithm
+			splitset = j.batch.splitset
+			preprocess = j.batch.hyperparamset.preprocess
+			hyperparamcombo = j.hyperparamcombo
+			fold = j.fold
 
-		# 2. Preprocess the features and labels.
-		if preprocess is not None:
-			# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
-			if preprocess.encoder_features is not None:
-				feature_encoder = preprocess.encoder_features
-				feature_encoder.fit(samples_train['features']) # Hmm. I need this later for test data
-				samples_train['features'] = feature_encoder.transform(samples_train['features'])
-			
-			if preprocess.encoder_labels is not None:
-				label_encoder = preprocess.encoder_labels
-				label_encoder.fit(samples_train['labels'])
-				samples_train['labels'] = label_encoder.transform(samples_train['labels'])
-			
-			if samples_evaluate is not None:
-				samples_evaluate['features'] = feature_encoder.transform(samples_evaluate['features'])
-				samples_evaluate['labels'] = label_encoder.transform(samples_evaluate['labels'])
-
-		# 3. Build and Train model.
-		if hyperparamcombo is not None:
-			hyperparameters = hyperparamcombo.hyperparameters
-		else:
-			hyperparameters = None
-		
-		model = algorithm.function_model_build(**hyperparameters)
-
-		model = algorithm.function_model_train(
-			model,
-			samples_train,
-			samples_evaluate,
-			**hyperparameters
-		)
-
-		# ToDo: create result. write model to Result
-		try:
-			# ToDo: need to let user specify name of history? and weights?
-			# or introduce logic to handle the popular algorithms?
-			model.history
-		except:
-			pass
-		else:
-			# ToDo: update the Result.history
-			pass
-
-		# 4. Fetch remaining evaluation samples. 
-		# We already have `samples_train` and `samples_evaluate` in memory.
-		evaluations = {}
-		evaluations['train'] = algorithm.function_model_evaluate(model, samples_train, **hyperparameters)
-
-		if splitset.supervision == "supervised":
-			# fold_validation.
+			# 1. Fetch training samples.
 			if fold is not None:
-				evaluations['fold_validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-				# at this point for folded sets, validation split may exist. test split exists and needs to be fetched.
-			
-			# validated and unfolded. meaning valiadtion split was already used by `samples_evaluate`.
-			if (splitset.has_validation) and (fold is None):
-				evaluations['validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-			# validated and folded. still need to fetch validation split.
-			elif (splitset.has_validation) and (fold is not None):
-				samples_validation = splitset.to_numpy(splits=['validation'])['validation']
-				if preprocess is not None:
-					samples_validation['features'] = feature_encoder.transform(samples_validation['features'])
-					samples_validation['labels'] = label_encoder.transform(samples_validation['labels'])
-				evaluations['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
+				foldset = fold.foldset
+				fold_samples_np = foldset.to_numpy(fold_index=fold.fold_index)[0]
 
-			# unvalidated.
-			if not splitset.has_validation:
-				# then test split was already used by `samples_evaluate`
-				evaluations['test'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+				samples_train = fold_samples_np['folds_train_combined']
+				# This `samples_evaluate` is just for the training validation history.
+				# We will use the Splitset validation split to formally evaluate later.
+				samples_evaluate = fold_samples_np['fold_validation']
 			else:
-				# otherwise, the test split still needs to be fetched.
-				samples_test = splitset.to_numpy(splits=['test'])['test']
-				if preprocess is not None:
-					samples_test['features'] = feature_encoder.transform(samples_test['features'])
-					samples_test['labels'] = label_encoder.transform(samples_test['labels'])
-				evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
+				samples_train = splitset.to_numpy(splits=['train'])['train']
+				if splitset.has_validation:
+					samples_evaluate = splitset.to_numpy(splits=['validation'])['validation']
+				elif splitset.supervision == "supervised":
+					samples_evaluate = splitset.to_numpy(splits=['test'])['test']
+				else:
+					samples_evaluate = None
 
-		print(evaluations)
-		#ToDo: write evaluations to Result
-		return j
+			# 2. Preprocess the features and labels.
+			if preprocess is not None:
+				# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
+				if preprocess.encoder_features is not None:
+					feature_encoder = preprocess.encoder_features
+					feature_encoder.fit(samples_train['features']) # Hmm. I need this later for test data
+					samples_train['features'] = feature_encoder.transform(samples_train['features'])
+				
+				if preprocess.encoder_labels is not None:
+					label_encoder = preprocess.encoder_labels
+					label_encoder.fit(samples_train['labels'])
+					samples_train['labels'] = label_encoder.transform(samples_train['labels'])
+				
+				if samples_evaluate is not None:
+					samples_evaluate['features'] = feature_encoder.transform(samples_evaluate['features'])
+					samples_evaluate['labels'] = label_encoder.transform(samples_evaluate['labels'])
+
+			# 3. Build and Train model.
+			if hyperparamcombo is not None:
+				hyperparameters = hyperparamcombo.hyperparameters
+			else:
+				hyperparameters = None
+			
+			model = algorithm.function_model_build(**hyperparameters)
+
+			model = algorithm.function_model_train(
+				model,
+				samples_train,
+				samples_evaluate,
+				**hyperparameters
+			)
+
+			# ToDo: create result. write model to Result
+			try:
+				# ToDo: need to let user specify name of history? and weights?
+				# or introduce logic to handle the popular algorithms?
+				model.history
+			except:
+				pass
+			else:
+				# ToDo: update the Result.history
+				pass
+
+			# 4. Fetch remaining evaluation samples. 
+			# We already have `samples_train` and `samples_evaluate` in memory.
+			evaluations = {}
+			evaluations['train'] = algorithm.function_model_evaluate(model, samples_train, **hyperparameters)
+
+			if splitset.supervision == "supervised":
+				# fold_validation.
+				if fold is not None:
+					evaluations['fold_validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+					# at this point for folded sets, validation split may exist. test split exists and needs to be fetched.
+				
+				# validated and unfolded. meaning valiadtion split was already used by `samples_evaluate`.
+				if (splitset.has_validation) and (fold is None):
+					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+				# validated and folded. still need to fetch validation split.
+				elif (splitset.has_validation) and (fold is not None):
+					samples_validation = splitset.to_numpy(splits=['validation'])['validation']
+					if preprocess is not None:
+						samples_validation['features'] = feature_encoder.transform(samples_validation['features'])
+						samples_validation['labels'] = label_encoder.transform(samples_validation['labels'])
+					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
+
+				# unvalidated.
+				if not splitset.has_validation:
+					# then test split was already used by `samples_evaluate`
+					evaluations['test'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+				else:
+					# otherwise, the test split still needs to be fetched.
+					samples_test = splitset.to_numpy(splits=['test'])['test']
+					if preprocess is not None:
+						samples_test['features'] = feature_encoder.transform(samples_test['features'])
+						samples_test['labels'] = label_encoder.transform(samples_test['labels'])
+					evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
+
+			#ToDo: write evaluations to Result
+			print(evaluations)
+			j.status = "Succeeded"
+			j.save()
+			return j
 
 
 class Result(BaseModel):
