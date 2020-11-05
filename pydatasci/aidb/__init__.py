@@ -1,6 +1,6 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, threading
+import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, multiprocessing
 from itertools import permutations
 from datetime import datetime
 
@@ -1197,28 +1197,31 @@ class Batch(BaseModel):
 		return statuses
 
 
-	def run_jobs(id:int):
+	def run_jobs(id:int, verbose:bool=True):
 		batch = Batch.get_by_id(id)
+		job_count = batch.job_count
 		jobs = batch.jobs
 
-		# statuses = Batch.get_statuses(id)
-		# all_not_started = (set(statuses.values()) == {'Not yet started'})
-		# if all_not_started:
-		# 	Job.update(status="Queued").where(Job.batch == id).execute()
-			
-		def jobs_loop(jobs:list):
-			for j in jobs:
-				j.run()
-
+		"""
 		thread_name = "aidb_batch_" + str(batch.id)
 		thread_names = [t.name for t in threading.enumerate()]
 		if thread_name in thread_names:
 			raise ValueError("\nYikes - Cannot start this Batch because it is already running.\n")
-
-		thread = threading.Thread(target=jobs_loop(jobs), name="aidb_batch_1")
-		thread.start()
-		
-		return batch.get_statuses()
+		"""
+		"""
+		statuses = Batch.get_statuses(id)
+		all_not_started = (set(statuses.values()) == {'Not yet started'})
+		if all_not_started:
+			Job.update(status="Queued").where(Job.batch == id).execute()
+		"""
+		"""
+		batch_process = multiprocessing.Process(target=jobs_loop(jobs), name="batch")
+		batch_process.start()
+		"""
+		if verbose:
+			print("\nTotal jobs to run: " + str(job_count) + "\nstarting queue...")
+		for j in jobs:
+			j.run(verbose=verbose)
 
 	def stop_jobs(id:int):
 		pass
@@ -1239,9 +1242,15 @@ class Job(BaseModel):
 	#preproc
 
 	# split into sub functions?
-	def run(id:int):
+	def run(id:int, verbose:bool=True):
 		j = Job.get_by_id(id)
-		if (j.status == "Succeeded") or (j.status == "Running"):
+		if (j.status == "Succeeded"):
+			if verbose:
+				print("\nSkipping Job #" + str(j.id) + " as is has already been ran.")
+			return j
+		elif (j.status == "Running"):
+			if verbose:
+				print("\nSkipping Job #" + str(j.id) + " as is has already running.")
 			return j
 		else:
 			algorithm = j.batch.algorithm
@@ -1346,10 +1355,11 @@ class Job(BaseModel):
 					evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
 
 			#ToDo: write evaluations to Result
-			print(evaluations)
+			if verbose:
+				print("\nJob #" + str(j.id) + " results: " + str(evaluations))
 			j.status = "Succeeded"
 			j.save()
-			return j
+			return j #return j.Result
 
 
 class Result(BaseModel):
