@@ -23,15 +23,15 @@ aidb.create_db()
 > We could run these `create` steps automatically, but it didn't feel trustworthy to inject files/ folders onto user machines, and we wanted people to understand what was going on behind the scenes.
 
 ## Mission
-* **Accelerating Research at Universities & Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
+* **Accelerating Research at Universities & Institutes Everywhere.**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
 
-* **Reproducible Experiments**<br />No more black boxes. No more screenshotting loss-accuracy graphs and parameters combinations. A persistent and embedded record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package. Submit your *aidb* database file alongside your publications/ papers and model zoo entries as a proof.<br /><br />
+* **Reproducible Experiments.**<br />No more black boxes. No more screenshotting loss-accuracy graphs and parameters combinations. A persistent and embedded record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package. Submit your *aidb* database file alongside your publications/ papers and model zoo entries as a proof.<br /><br />
 
-* **Queue Hypertuning Jobs**<br />Design a batch of runs to test many hypotheses at once. Queue many hypertuning jobs locally, or delegate big jobs to the cloud to run in parallel by setting `cloud_queue = True`.<br /><br />
+* **Queue Hypertuning Jobs.**<br />Design a batch of runs to test many hypotheses at once. Queue many hypertuning jobs locally, or delegate big jobs to the cloud to run in parallel by setting `cloud_queue = True`.<br /><br />
 
-* **Visually Compare Performance Metrics**<br />Compare models using pre-defined plots for assessing performance, including: quantitative metrics (e.g. accuracy, loss, variance, precision, recall, etc.), training histories, and confusion/ contingency matrices.<br /><br />
+* **Visually Compare Performance Metrics.**<br />Compare models using pre-defined plots for assessing performance, including: quantitative metrics (e.g. accuracy, loss, variance, precision, recall, etc.), training histories, and confusion/ contingency matrices.<br /><br />
 
-* **Code-Integrated & Agnostic**<br />We don’t disrupt the natural workflow of data scientists by forcing them into the confines of a GUI app or specific IDE. Instead, we weave automated tracking into their existing scripts so that *PyDataSci* is compatible with any data science toolset.<br /><br />
+* **Code-Integrated & Agnostic.**<br />We don’t disrupt the natural workflow of data scientists by forcing them into the confines of a GUI app or specific IDE. Instead, we weave automated tracking into their existing scripts so that *PyDataSci* is compatible with any data science toolset.<br /><br />
 
 ![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
 
