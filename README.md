@@ -4,10 +4,11 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform best practice machine learning without the coding overhead. It brings the scientific method to data science to make artificial intelligence less artificial.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and comparatively assess algorithm performance without the coding overhead.
 
+It is a Python package that automatically keeps track of experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their local machine/ server for free, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
 
-## TLDR
+## TLDR; here's the entire installation.
 ```
 pip install pydatasci
 
@@ -18,13 +19,14 @@ pds.create_config()
 from pydatasci import aidb
 aidb.create_db()
 ```
+> We could run these `create` steps automatically, but it didn't feel trustworthy to inject files/ folders onto user machines.
 
 ## Mission
-* **Empowering Universities & Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker).<br /><br />
+* **Accelerating Research at Universities & Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
 
-* **Reproducibly Persistent & Embedded**<br />No more black boxes. No more screenshotting parameters and loss-accuracy graphs. A record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package. Submit your *aidb* database file alongside your publications/ papers and model zoo entries as a proof.<br /><br />
+* **Reproducible Experiments**<br />No more black boxes. No more screenshotting loss-accuracy graphs and parameters combinations. A persistent and embedded record of every: dataset, feature, label, sample, split, fold, parameter, model, training job, and result - is automatically persisted in a lightweight, file-based database that is automatically configured when you import the package. Submit your *aidb* database file alongside your publications/ papers and model zoo entries as a proof.<br /><br />
 
-* **Queue Hypertuning Jobs**<br />Queue many hypertuning jobs locally, or delegate big jobs to the cloud to run in parallel by setting `cloud_queue = True`.<br /><br />
+* **Queue Hypertuning Jobs**<br />Design a batch of runs to test many hypotheses at once. Queue many hypertuning jobs locally, or delegate big jobs to the cloud to run in parallel by setting `cloud_queue = True`.<br /><br />
 
 * **Visually Compare Performance Metrics**<br />Compare models using pre-defined plots for assessing performance, including: quantitative metrics (e.g. accuracy, loss, variance, precision, recall, etc.), training histories, and confusion/ contingency matrices.<br /><br />
 
@@ -35,15 +37,16 @@ aidb.create_db()
 
 ## Functionality
 *Initially focusing on tabular data before expanding to multi-file use cases.*
-- [Done] Compress a dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
+- [Done] Compress an immutable dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
 - [Done] Split samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
-- [Done] Generate hyperparameter combinations for preprocessing, model building, model training, and model evaluation.
-- [In progress] Queue hypertuning jobs and batches based on hyperparameter combinations.
+- [Done] Generate hyperparameter combinations for model building, training, and evaluation.
+- [Done] Preprocess samples to encode them for specific algorithms.
+- [Done] Queue hypertuning jobs and batches based on hyperparameter combinations.
 - [In progress] Evaluate and save the performance metrics of each model. 
-- [ToDo] Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
-- [Future] Derive informative featuresets from that dataset using supervised and unsupervised methods.
-- [Future] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
-- Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
+- [Next] Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
+- [Next] Derive informative featuresets from that dataset using supervised and unsupervised methods.
+- [Next] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
+- [Next] Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
 
 ## Painpoint Solved
