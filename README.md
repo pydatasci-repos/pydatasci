@@ -10,17 +10,18 @@ It is a Python package that automatically keeps track of experiments in a lightw
 
 ## TLDR
 Here's the entire installation.
-```
-pip install pydatasci
+```python
+$ pip install pydatasci
+$ python
 
-import pydatasci as pds
-pds.create_folder()
-pds.create_config()
+>>> import pydatasci as pds
+>>> pds.create_folder()
+>>> pds.create_config()
 
-from pydatasci import aidb
-aidb.create_db()
+>>> from pydatasci import aidb
+>>> aidb.create_db()
 ```
-> We could run these `create` steps automatically, but it didn't feel trustworthy to inject files/ folders onto user machines, and we wanted people to understand what was going on behind the scenes.
+> Although we could run these `create` steps automatically, it didn't feel trustworthy to inject files/ folders onto user machines, and we wanted people to understand what was happening behind the scenes.
 
 ## Mission
 * **Accelerating Research at Universities & Institutes Everywhere.**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
