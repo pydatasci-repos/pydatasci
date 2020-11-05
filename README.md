@@ -446,9 +446,10 @@ batch = aidb.Batch.from_algorithm(
 #### When you are ready, run the Jobs.
 The jobs will be asynchronously executed on a background thread, so that you can continue to code on the main thread. You can poll the job status. 
 ```python
-batch.execute()
-batch.get_status()
+batch.run_jobs()
+batch.get_statuses()
 ```
+Artifacts like models and performance metrics will be written to `Job.Results`.
 
 
 ### 11. Visually compare the performance of your hypertuned Algorithms.

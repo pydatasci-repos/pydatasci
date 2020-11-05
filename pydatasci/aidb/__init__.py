@@ -1,8 +1,9 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, multiprocessing
+import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, threading
 from itertools import permutations
 from datetime import datetime
+from time import sleep
 
 #orm
 from peewee import *
@@ -1197,31 +1198,35 @@ class Batch(BaseModel):
 		return statuses
 
 
-	def run_jobs(id:int, verbose:bool=True):
+	def run_jobs(id:int, verbose:bool=False):
 		batch = Batch.get_by_id(id)
 		job_count = batch.job_count
 		jobs = batch.jobs
 
-		"""
 		thread_name = "aidb_batch_" + str(batch.id)
 		thread_names = [t.name for t in threading.enumerate()]
 		if thread_name in thread_names:
 			raise ValueError("\nYikes - Cannot start this Batch because it is already running.\n")
-		"""
-		"""
+
 		statuses = Batch.get_statuses(id)
 		all_not_started = (set(statuses.values()) == {'Not yet started'})
 		if all_not_started:
 			Job.update(status="Queued").where(Job.batch == id).execute()
-		"""
-		"""
-		batch_process = multiprocessing.Process(target=jobs_loop(jobs), name="batch")
-		batch_process.start()
+
+		def batch_jobs(): #<-- did not run in background when I use an arg.
+			for j in jobs:
+				j.run(verbose=verbose)
+
+		t = threading.Thread(target=batch_jobs, name=thread_name)
+		t.start()
+
 		"""
 		if verbose:
 			print("\nTotal jobs to run: " + str(job_count) + "\nstarting queue...")
 		for j in jobs:
 			j.run(verbose=verbose)
+		"""
+
 
 	def stop_jobs(id:int):
 		pass
