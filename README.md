@@ -4,11 +4,12 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and comparatively assess algorithm performance without the coding overhead.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and comparatively assess algorithm performance without the coding overhead. ∴ more science with less code.
 
 It is a Python package that automatically keeps track of experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their local machine/ server for free, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
 
-## TLDR; here's the entire installation.
+## TLDR
+Here's the entire installation.
 ```
 pip install pydatasci
 
@@ -19,7 +20,7 @@ pds.create_config()
 from pydatasci import aidb
 aidb.create_db()
 ```
-> We could run these `create` steps automatically, but it didn't feel trustworthy to inject files/ folders onto user machines.
+> We could run these `create` steps automatically, but it didn't feel trustworthy to inject files/ folders onto user machines, and we wanted people to understand what was going on behind the scenes.
 
 ## Mission
 * **Accelerating Research at Universities & Institutes Everywhere**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
