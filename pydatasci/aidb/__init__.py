@@ -1208,6 +1208,10 @@ class Batch(BaseModel):
 		# Want succeeded jobs to appear first so that they get skipped over during a resumed run. Otherwise the % done jumps around.
 		jobs = Job.select().join(Batch).where(Batch.id == batch.id).order_by(Job.status.desc())
 
+		statuses = Batch.get_statuses(id=batch.id)
+		if "Succeeded" in statuses.values():
+			print("\nResuming jobs...\n")
+
 		proc_name = "aidb_batch_" + str(batch.id)
 		proc_names = [p.name for p in multiprocessing.active_children()]
 		if proc_name in proc_names:
