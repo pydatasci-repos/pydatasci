@@ -1205,7 +1205,8 @@ class Batch(BaseModel):
 	def run_jobs(id:int, verbose:bool=False):
 		batch = Batch.get_by_id(id)
 		job_count = batch.job_count
-		jobs = batch.jobs
+		# Want succeeded jobs to appear first so that they get skipped over during a resumed run. Otherwise the % done jumps around.
+		jobs = Job.select().join(Batch).where(Batch.id == batch.id).order_by(Job.status.desc())
 
 		proc_name = "aidb_batch_" + str(batch.id)
 		proc_names = [p.name for p in multiprocessing.active_children()]
@@ -1237,6 +1238,7 @@ class Batch(BaseModel):
 
 
 	def stop_jobs(id:int):
+		# SQLite is ACID (D = Durable) where if a transaction is interrupted it is rolled back.
 		batch = Batch.get_by_id(id)
 		
 		proc_name = "aidb_batch_" + str(batch.id)
@@ -1247,8 +1249,12 @@ class Batch(BaseModel):
 		processes = multiprocessing.active_children()
 		for p in processes:
 			if p.name == proc_name:
-				p.terminate()
-				print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
+				try:
+					p.terminate()
+				except:
+					raise Exception("\nYikes - Failed to terminate `multiprocessing.Process` '" + proc_name + ".'\n")
+				else:
+					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
 
 
 
@@ -1271,13 +1277,15 @@ class Job(BaseModel):
 		j = Job.get_by_id(id)
 		if (j.status == "Succeeded"):
 			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as is has already been ran.")
+				print("\nSkipping Job #" + str(j.id) + " as is has already succeeded.")
 			return j
 		elif (j.status == "Running"):
 			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as is has already running.")
+				print("\nSkipping Job #" + str(j.id) + " as is is already running.")
 			return j
 		else:
+			if verbose:
+				print("\nJob #" + str(j.id) + " starting...")
 			algorithm = j.batch.algorithm
 			splitset = j.batch.splitset
 			preprocess = j.batch.hyperparamset.preprocess
