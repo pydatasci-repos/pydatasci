@@ -454,7 +454,7 @@ The jobs will be asynchronously executed on a background thread, so that you can
 batch.run_jobs()
 batch.get_statuses()
 ```
-Artifacts like models and performance metrics will be written to `Job.Results`.
+Artifacts like the model object and performance metrics are automatically be written to `Job.Results`.
 
 
 ### 11. Visually compare the performance of your hypertuned Algorithms.
