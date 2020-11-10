@@ -1,6 +1,6 @@
 name = "aidb"
 
-import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, multiprocessing
+import os, sqlite3, io, gzip, zlib, random, pickle, itertools, warnings, multiprocessing, h5py
 from itertools import permutations
 from datetime import datetime
 from time import sleep
@@ -20,6 +20,9 @@ from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.preprocessing import *
 
 from tqdm import tqdm
+
+import keras 
+from keras.models import Sequential, load_model
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -90,7 +93,7 @@ def create_db():
 			Dataset, Label, Featureset, 
 			Splitset, Foldset, Fold, 
 			Algorithm, Hyperparamset, Hyperparamcombo, Preprocess, 
-			Batch, Job
+			Batch, Job, Result
 		])
 		tables = db.get_tables()
 		table_count = len(tables)
@@ -1345,7 +1348,7 @@ class Job(BaseModel):
 				samples_evaluate,
 				**hyperparameters
 			)
-
+			"""
 			# ToDo: create result. write model to Result
 			try:
 				# ToDo: need to let user specify name of history? and weights?
@@ -1356,6 +1359,7 @@ class Job(BaseModel):
 			else:
 				# ToDo: update the Result.history
 				pass
+			"""
 
 			# 4. Fetch remaining evaluation samples. 
 			# We already have `samples_train` and `samples_evaluate` in memory.
@@ -1394,15 +1398,51 @@ class Job(BaseModel):
 			#ToDo: write evaluations to Result
 			if verbose:
 				print("\nJob #" + str(j.id) + " results: " + str(evaluations))
+			
+			#if (Algorithm.library == "Keras"):
+			h5_buffer = io.BytesIO()
+			model.save(
+				h5_buffer
+				, include_optimizer = True
+				, save_format = 'h5'
+			)
+			h5_bytes = h5_buffer.getvalue()
+
+			r = Result.create(
+				model_file = h5_bytes
+				#model_topology = model.to_json()
+				#, model_weights = model.weights
+				#, model_history = model.history
+				, evaluations = evaluations
+				, job = j
+			)
+
 			j.status = "Succeeded"
 			j.save()
-			return j #return j.Result
+			return j
+
+
 
 
 class Result(BaseModel):
+	model_file = BlobField()
+	#model_topology = JSONField()
+	#model_weights = PickleField()
+	#model_history = PickleField(null=True)
+	evaluations = JSONField()
+	#predictions
+
 	job = ForeignKeyField(Job, backref='results')
-	history = PickleField()
-	model_trained = PickleField() 
+
+	def get_model(id:int):
+		r = Result.get_by_id(id)
+		model_bytes = r.model_file
+		model_bytesio = io.BytesIO(model_bytes)
+		#if (Algorithm.library == "Keras"):
+		h5_file = h5py.File(model_bytesio,'r')
+		model = load_model(h5_file, compile=True)
+		return model
+
 
 
 

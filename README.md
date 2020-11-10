@@ -4,24 +4,16 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and comparatively assess algorithm performance without the coding overhead. ∴ more science with less code.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and assess algorithm performance without the coding overhead. ∴ more science with 95% less code.
 
-It is a Python package that automatically keeps track of experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their local machine/ server for free, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
+It is a Python package that automatically keeps track of machine learning experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their local machine/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
 
 ## TLDR
-Here's the entire installation.
 ```python
 $ pip install pydatasci
-$ python
-
 >>> import pydatasci as pds
->>> pds.create_folder()
->>> pds.create_config()
-
 >>> from pydatasci import aidb
->>> aidb.create_db()
 ```
-> Although we could run these `create` steps automatically, it didn't feel trustworthy to inject files/ folders onto user machines, and we wanted people to understand what was happening behind the scenes.
 
 ## Mission
 * **Accelerating Research at Universities & Institutes Everywhere.**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
@@ -40,7 +32,7 @@ $ python
 ## Functionality
 *Initially focusing on tabular data before expanding to multi-file use cases.*
 - [Done] Compress an immutable dataset (csv, tsv, parquet, pandas dataframe, numpy ndarray) to be analyzed.
-- [Done] Split samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
+- [Done] Split stratified samples by index while treating validation sets (3rd split) and cross-folds (k-fold) as first-level citizens.
 - [Done] Generate hyperparameter combinations for model building, training, and evaluation.
 - [Done] Preprocess samples to encode them for specific algorithms.
 - [Done] Queue hypertuning jobs and batches based on hyperparameter combinations.
@@ -49,12 +41,6 @@ $ python
 - [Next] Derive informative featuresets from that dataset using supervised and unsupervised methods.
 - [Next] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
 - [Next] Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
-
-
-## Painpoint Solved
-At the time, I was deep in an unstable, remote Linux workspace trying to finish a meta-analysis of methods for interpreting neural network activation values as an alternative approach to predictions based on the traditional feedforward weighted sum. I was running so many variations of models from different versions of graph neural network algorithms, CNNs, LSTMs... the analysis was really starting to pile up. First I started taking screenshots of my loss-accuracy graphs and that worked fine for a while. Then I started taking screenshots of my hyper-params; I couldn't be bothered to write down every combination of parameters I was running and the performance metrics they spit out every time. But, then again, I hadn't generated confusion matrices to compare and I should really record my feature importance ranking... and then the wheels really fell off when I started questioning if my `df` in-memory was really the `df` I thought it was last week. 
-
-Slamming my head on the keyboard a few times, I thought to myself "I don't want to do all of that..." So I did what any good hacker would do and started a full blown project around it. I had done the hardest part in figuring out the science, but this permuted world was just a mess when it came time to systematically prove it. It wasn't conducive to the scientific method. I had also been keeping an eye on other tools in the space. They seemed lacking in that they were either: cloud-only, dependent on an external database, the integration processes were too complex for data scientists/ statisticians/ researchers, the tech wasn't distributed properly, or they were just too proprietary/ walled garden/ biased toward corporate ecosystems.
 
 
 ## Community
@@ -449,10 +435,12 @@ batch = aidb.Batch.from_algorithm(
 ```
 
 #### When you are ready, run the Jobs.
-The jobs will be asynchronously executed on a background thread, so that you can continue to code on the main thread. You can poll the job status. 
+The jobs will be asynchronously executed on a background thread, so that you can continue to code on the main thread. You can poll the job status.
+
 ```python
 batch.run_jobs()
 batch.get_statuses()
+batch.stop_jobs()
 ```
 Artifacts like the model object and performance metrics are automatically be written to `Job.Results`.
 
