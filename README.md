@@ -440,9 +440,23 @@ The jobs will be asynchronously executed on a background thread, so that you can
 ```python
 batch.run_jobs()
 batch.get_statuses()
-batch.stop_jobs()
 ```
-Artifacts like the model object and performance metrics are automatically be written to `Job.Results`.
+
+You can stop the execution of a batch if you need to, and later resume it. If your kernel crashes then you can likewise resume the execution.
+
+```python
+batch.stop_jobs()
+batch.run_jobs()
+```
+
+Artifacts like the model object and performance metrics are automatically be written to `Job.results`.
+
+```python
+compiled_model = batch.jobs[0].results[0].get_model()
+compiled_model
+
+<tensorflow.python.keras.engine.sequential.Sequential at 0x14d4f4310>
+```
 
 
 ### 11. Visually compare the performance of your hypertuned Algorithms.

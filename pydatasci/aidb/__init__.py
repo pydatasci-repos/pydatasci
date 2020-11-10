@@ -23,6 +23,7 @@ from tqdm import tqdm
 
 import keras 
 from keras.models import Sequential, load_model
+from keras.callbacks import History
 
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
@@ -1046,10 +1047,11 @@ class Algorithm(BaseModel):
 	# I guess it would be easier to throw 2 models into the mix though.
 	# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	"""
-	description = CharField(null=True)
+	library = CharField()
 	function_model_build = PickleField()
 	function_model_train = PickleField()
 	function_model_evaluate = PickleField()
+	description = CharField(null=True)
 
 
 
@@ -1348,18 +1350,11 @@ class Job(BaseModel):
 				samples_evaluate,
 				**hyperparameters
 			)
-			"""
-			# ToDo: create result. write model to Result
-			try:
-				# ToDo: need to let user specify name of history? and weights?
-				# or introduce logic to handle the popular algorithms?
-				model.history
-			except:
-				pass
-			else:
-				# ToDo: update the Result.history
-				pass
-			"""
+			
+			if (algorithm.library == "Keras"):
+				# `function_model_evaluate()` runs erase the `keras.model.history` object.
+				# If blank this value is `{}` not None.
+				model_history = model.history.history
 
 			# 4. Fetch remaining evaluation samples. 
 			# We already have `samples_train` and `samples_evaluate` in memory.
@@ -1395,27 +1390,25 @@ class Job(BaseModel):
 						samples_test['labels'] = label_encoder.transform(samples_test['labels'])
 					evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
 
-			#ToDo: write evaluations to Result
 			if verbose:
 				print("\nJob #" + str(j.id) + " results: " + str(evaluations))
 			
-			#if (Algorithm.library == "Keras"):
-			h5_buffer = io.BytesIO()
-			model.save(
-				h5_buffer
-				, include_optimizer = True
-				, save_format = 'h5'
-			)
-			h5_bytes = h5_buffer.getvalue()
+			# 5. Persist it.
+			if (algorithm.library == "Keras"):
+				h5_buffer = io.BytesIO()
+				model.save(
+					h5_buffer
+					, include_optimizer = True
+					, save_format = 'h5'
+				)
+				h5_bytes = h5_buffer.getvalue()
 
-			r = Result.create(
-				model_file = h5_bytes
-				#model_topology = model.to_json()
-				#, model_weights = model.weights
-				#, model_history = model.history
-				, evaluations = evaluations
-				, job = j
-			)
+				r = Result.create(
+					model_file = h5_bytes
+					, model_history = model_history
+					, evaluations = evaluations
+					, job = j
+				)
 
 			j.status = "Succeeded"
 			j.save()
@@ -1426,9 +1419,7 @@ class Job(BaseModel):
 
 class Result(BaseModel):
 	model_file = BlobField()
-	#model_topology = JSONField()
-	#model_weights = PickleField()
-	#model_history = PickleField(null=True)
+	model_history = JSONField()
 	evaluations = JSONField()
 	#predictions
 
