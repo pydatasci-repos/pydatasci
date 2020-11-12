@@ -6,9 +6,9 @@
 # Value Proposition
 *PyDataSci* is an open source, automated machine learning (AutoML) tool for data scientists that reduces the amount of code needed to perform best practice machine learning by 95%; ∴ more science with less code.
 
-It is an easily installable Python package that records experiments in a persistent, lightweight, and file-based database that automatically works on any operating system without any configuration required by the user. By tracking the samples indeces (IDs) and hyperparameters (settings) fed into each experiment, it makes machine learning reproducible. That is to say, it makes artificial intelligence less of a black box by bringing the scientific method to data science. 
+It is a Python package that records experiments in a lightweight, file-based database that automatically works on any operating system without any configuration required by the user. By tracking the samples and settings fed into each experiment, it makes machine learning reproducible; less of a black box.
 
-Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources. From there, model performance metrics can be visually compared in interactive charts.
+Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources. From there, model performance metrics can be visually compared in interactive charts. It is designed to work within Jupyter notebooks, but works in any Python shell.
 
 ## TLDR
 ```python
@@ -16,6 +16,9 @@ $ pip install pydatasci
 >>> import pydatasci as pds
 >>> from pydatasci import aidb
 ```
+
+![Model Metrics](/images/chart.png)
+
 
 ## Mission
 * **Accelerating Research at Universities & Institutes Everywhere.**<br />We empower non-cloud users: the academic/ institute HPCers, the private clouders, the remote server SSH'ers, and everyday desktop hackers - with the same quality ML tooling as present in public clouds (e.g. AWS SageMaker). This toolset provides research teams a standardized method for ML-based evidence, rather than each researcher spending time cobbling together their own approach.<br /><br />
