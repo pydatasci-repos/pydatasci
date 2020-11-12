@@ -1291,18 +1291,21 @@ class Batch(BaseModel):
 				pack = {}
 				loss = d['evaluations'][k][0]
 				acc = d['evaluations'][k][1]
-		        
+
 				if (loss >= max_loss) or (acc <= min_accuracy):
 					failed = True
 				else:
 					failed = False
+					# do the rounding after the checks.
+					loss = round(loss, 3)
+					acc = round(acc, 3)
 					pack['loss'] = loss
 					pack['accuracy'] = acc
 					# Manipulate so that `split` is it's own column is easy to plot.
 					pack['split'] = k
 					# Rename key to be obvious to user on the chart.
 					pack['job_id'] = d['id']
-		            
+
 				checks.append(failed)
 				rows.append(pack)
 			if True in checks:
@@ -1326,8 +1329,14 @@ class Batch(BaseModel):
 			)
 			fig.update_traces(
 				mode = 'markers+lines'
-				, line = dict(width=1)
-				, opacity = 0.90
+				, line = dict(width = 2)
+				, marker = dict(
+					size = 8
+					, line = dict(
+						width = 2
+						, color = 'white'
+					)
+				)
 			)
 			fig.update_layout(
 				font_family = "Avenir"
@@ -1335,8 +1344,8 @@ class Batch(BaseModel):
 				, plot_bgcolor = "#181B1E"
 				, paper_bgcolor = "#181B1E"
 				, hoverlabel = dict(
-					bgcolor = "#E0E0E0"
-					, font_size = 12
+					bgcolor = "#0F0F0F"
+					, font_size = 15
 					, font_family = "Avenir"
 				)
 			)
