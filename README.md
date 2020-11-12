@@ -4,9 +4,11 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and assess algorithm performance without the coding overhead; ∴ more science with 95% less code.
+*PyDataSci* is an open source, automated machine learning (AutoML) tool for data scientists that reduces the amount of code needed to perform best practice machine learning by 95%; ∴ more science with less code.
 
-It is a Python package that automatically keeps track of machine learning experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
+It is an easily installable Python package that records experiments in a persistent, lightweight, and file-based database that automatically works on any operating system without any configuration required by the user. By tracking the samples indeces (IDs) and hyperparameters (settings) fed into each experiment, it makes machine learning reproducible. That is to say, it makes artificial intelligence less of a black box by bringing the scientific method to data science. 
+
+Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources. From there, model performance metrics can be visually compared in interactive charts.
 
 ## TLDR
 ```python

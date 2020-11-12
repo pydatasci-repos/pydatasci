@@ -1266,16 +1266,11 @@ class Batch(BaseModel):
 					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
 
 
-	def plot_evaluations(id:int, max_loss:float, min_accuracy:float):
-		"""
-		peewee as dicts
-		http://docs.peewee-orm.com/en/latest/peewee/querying.html
-		pandas from list of dicts
-		https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.from_records.html
-		"""
+	def plot_evaluations(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
 		batch = Batch.get_by_id(id)
 		id = batch.id
 
+		# ORM `.dicts()` http://docs.peewee-orm.com/en/latest/peewee/querying.html
 		evaluation_dicts = Result.select(
 			Result.id, Result.evaluations
 		).join(Job).join(Batch).where(Batch.id == id).dicts()
@@ -1317,6 +1312,7 @@ class Batch(BaseModel):
 					dicts_by_split.append(r)
 
 		if len(dicts_by_split) > 0:
+			# pandas from list of dicts: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.from_records.html
 			df = pd.DataFrame.from_records(dicts_by_split)
 
 			fig = px.line(
