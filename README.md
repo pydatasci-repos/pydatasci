@@ -4,11 +4,11 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, automated machine learning (AutoML) tool for data scientists that reduces the amount of code needed to perform best practice machine learning by 95%; ∴ more science with less code.
+*PyDataSci* is an open source, automated machine learning (AutoML) tool for data scientists that reduces the amount of code needed to perform best practice machine learning by 95%; more science with less code.
 
-It is a Python package that records experiments in a lightweight, file-based database that works on any operating system without any configuration required by the user. By tracking the input (samples and settings) and output (models and metrics) of each experiment, it not only makes machine learning reproducible, less of a black box, but also brings the scientific method to data science.
+It is a Python package that records experiments in a lightweight, file-based database that works on any operating system without any configuration required by the user. By tracking the input (samples and settings) and output (models and metrics) of each experiment, it not only makes machine learning reproducible; less of a black box.
 
-Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources. From there, model performance metrics can be visually compared in interactive charts. It is designed to work within Jupyter notebooks, but runs in any Python shell.
+Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources. From there, model performance metrics can be visually compared in interactive charts. It is designed for use within Jupyter notebooks, but runs in any Python shell.
 
 ## TLDR
 ```python
@@ -18,6 +18,7 @@ $ pip install pydatasci
 ```
 
 ![Model Metrics](/images/chart.png)
+<div align="center">*Example of built-in charts for comparing model performance metrics*</div>
 
 
 ## Mission
@@ -32,7 +33,6 @@ $ pip install pydatasci
 * **Code-Integrated & Agnostic.**<br />We don’t disrupt the natural workflow of data scientists by forcing them into the confines of a GUI app or specific IDE. Instead, we weave automated tracking into their existing scripts so that *PyDataSci* is compatible with any data science toolset.<br /><br />
 
 ![Ecosystem Banner (wide)](/images/ecosystem_banner.png)
-<div align="center">*Example of built-in charts for comparing model performance metrics*</div>
 
 
 ## Functionality
