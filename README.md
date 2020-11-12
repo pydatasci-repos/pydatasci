@@ -4,9 +4,9 @@
 *pre-alpha; in active development*
 
 # Value Proposition
-*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and assess algorithm performance without the coding overhead. ∴ more science with 95% less code.
+*PyDataSci* is an open source, autoML tool that keeps track of the moving parts of machine learning so that data scientists can perform reproducible experiments and assess algorithm performance without the coding overhead; ∴ more science with 95% less code.
 
-It is a Python package that automatically keeps track of machine learning experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their local machine/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
+It is a Python package that automatically keeps track of machine learning experiments in a lightweight, file-based database. Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources.
 
 ## TLDR
 ```python
@@ -448,8 +448,8 @@ You can stop the execution of a batch if you need to, and later resume it. If yo
 batch.stop_jobs()
 batch.run_jobs()
 ```
-
-Artifacts like the model object and performance metrics are automatically be written to `Job.results`.
+### 11. Examine `Results`.
+Artifacts like the model object, training history, and performance metrics are automatically be written to `Job.results`.
 
 ```python
 compiled_model = batch.jobs[0].results[0].get_model()
@@ -459,7 +459,7 @@ compiled_model
 ```
 
 
-### 11. Visually compare the performance of your hypertuned Algorithms.
+### 12. Visually compare the performance of your hypertuned Algorithms.
 
 ---
 

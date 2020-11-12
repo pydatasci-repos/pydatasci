@@ -25,6 +25,8 @@ import keras
 from keras.models import Sequential, load_model
 from keras.callbacks import History
 
+import plotly.express as px
+
 # Assumes `pds.create_config()` is run prior to `pds.get_config()`.
 from pydatasci import get_config
 
@@ -928,8 +930,6 @@ class Foldset(BaseModel):
 			if (0 > fold_index) or (fold_index > fold_count):
 				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has fold indices between 0 and " + str(fold_count - 1) + "\n")
 
-
-
 		s = foldset.splitset
 		supervision = s.supervision
 		featureset = s.featureset
@@ -1266,6 +1266,92 @@ class Batch(BaseModel):
 					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
 
 
+	def plot_evaluations(id:int, max_loss:float, min_accuracy:float):
+		"""
+		peewee as dicts
+		http://docs.peewee-orm.com/en/latest/peewee/querying.html
+		pandas from list of dicts
+		https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.from_records.html
+		"""
+		batch = Batch.get_by_id(id)
+		id = batch.id
+
+		evaluation_dicts = Result.select(
+			Result.id, Result.evaluations
+		).join(Job).join(Batch).where(Batch.id == id).dicts()
+
+		data_names = list(evaluation_dicts[0]['evaluations'].keys())
+
+		# need to extract each instance from the model object
+		evaluation_dicts = [ed for ed in evaluation_dicts]
+
+		dicts_by_split = []
+
+		# Create a separate dictionary for each split.
+		# Prune out the Jobs if any of the splits didn't meet the criteria.
+		for d in evaluation_dicts:
+			rows = []
+			checks = []
+			for k in data_names:
+				pack = {}
+				loss = d['evaluations'][k][0]
+				acc = d['evaluations'][k][1]
+		        
+				if (loss >= max_loss) or (acc <= min_accuracy):
+					failed = True
+				else:
+					failed = False
+					pack['loss'] = loss
+					pack['accuracy'] = acc
+					# Manipulate so that `split` is it's own column is easy to plot.
+					pack['split'] = k
+					# Rename key to be obvious to user on the chart.
+					pack['job_id'] = d['id']
+		            
+				checks.append(failed)
+				rows.append(pack)
+			if True in checks:
+				pass
+			else:
+				for r in rows:
+					dicts_by_split.append(r)
+
+		if len(dicts_by_split) > 0:
+			df = pd.DataFrame.from_records(dicts_by_split)
+
+			fig = px.line(
+				df
+				, title = '<i>Models Metrics by Split ' + str(data_names) + '</i>'
+				, x = 'loss'
+				, y = 'accuracy'
+				, color = 'job_id'
+				, height = 600
+				, hover_data = ['job_id', 'split', 'accuracy', 'loss']
+			)
+			fig.update_traces(
+				mode = 'markers+lines'
+				, line = dict(width=1)
+				, opacity = 0.90
+			)
+			fig.update_layout(
+				font_family = "Avenir"
+				, font_color = "#FAFAFA"
+				, plot_bgcolor = "#181B1E"
+				, paper_bgcolor = "#181B1E"
+				, hoverlabel = dict(
+					bgcolor = "#E0E0E0"
+					, font_size = 12
+					, font_family = "Avenir"
+				)
+			)
+			fig.update_xaxes(gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			fig.update_yaxes(gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			# include the 'split' in the hover
+			return fig
+		else:
+			print("There are no models that met the criteria specified.")
+
+
 
 
 class Job(BaseModel):
@@ -1318,7 +1404,7 @@ class Job(BaseModel):
 					samples_evaluate = splitset.to_numpy(splits=['test'])['test']
 				else:
 					samples_evaluate = None
-
+			
 			# 2. Preprocess the features and labels.
 			if preprocess is not None:
 				# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
@@ -1335,7 +1421,7 @@ class Job(BaseModel):
 				if samples_evaluate is not None:
 					samples_evaluate['features'] = feature_encoder.transform(samples_evaluate['features'])
 					samples_evaluate['labels'] = label_encoder.transform(samples_evaluate['labels'])
-
+			
 			# 3. Build and Train model.
 			if hyperparamcombo is not None:
 				hyperparameters = hyperparamcombo.hyperparameters
@@ -1418,20 +1504,27 @@ class Job(BaseModel):
 
 
 class Result(BaseModel):
+	"""
+	- The classes of encoded labels are all based on train labels.
+	"""
 	model_file = BlobField()
 	model_history = JSONField()
 	evaluations = JSONField()
-	#predictions
+	#sample_predictions = JSONField()
+	#sample_actual = 
+	#prediction probabilities
+	#legend = 
 
 	job = ForeignKeyField(Job, backref='results')
 
 	def get_model(id:int):
 		r = Result.get_by_id(id)
+		algorithm = r.job.algorithm
 		model_bytes = r.model_file
 		model_bytesio = io.BytesIO(model_bytes)
-		#if (Algorithm.library == "Keras"):
-		h5_file = h5py.File(model_bytesio,'r')
-		model = load_model(h5_file, compile=True)
+		if (algorithm.library == "Keras"):
+			h5_file = h5py.File(model_bytesio,'r')
+			model = load_model(h5_file, compile=True)
 		return model
 
 
