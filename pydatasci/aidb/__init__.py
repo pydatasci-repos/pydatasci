@@ -1554,6 +1554,7 @@ class Result(BaseModel):
 
 	job = ForeignKeyField(Job, backref='results')
 
+
 	def get_model(id:int):
 		r = Result.get_by_id(id)
 		algorithm = r.job.algorithm
@@ -1565,6 +1566,47 @@ class Result(BaseModel):
 		return model
 
 
+	def plot_confusion_matrices(id:int):
+		r = Result.get_by_id(id)
+		cms = r.confusion_matrices
+		
+		if cms is None:
+			print("\nNot confusion matrices to plot.\n")
+		else:
+			for name,cm in r.confusion_matrices.items():
+				fig = px.imshow(
+					cm
+					, color_continuous_scale = px.colors.sequential.Cividis_r
+					, labels=dict(x="Predicted Label", y="Actual Label")
+				)
+				fig.update_layout(
+					xaxis_title = "Predicted Label"
+					, yaxis_title = "Actual Label"
+					, legend_title = 'Sample Count'
+					, font_family = "Avenir"
+					, font_color = "#FAFAFA"
+					, plot_bgcolor = "#181B1E"
+					, paper_bgcolor = "#181B1E"
+					, height = 200
+					, hoverlabel = dict(
+						bgcolor = "#0F0F0F"
+						, font_size = 15
+						, font_family = "Avenir"
+					)
+					, yaxis = dict(
+						tickmode = 'linear'
+						, tick0 = 0.0
+						, dtick = 1.0
+					)
+					, title = dict(
+						text = "<i>Confusion Matrix: " + name + "</i>"
+						, y = 0.92
+						, x = 0.50
+						, xanchor = 'center'
+						, yanchor = 'top'
+					)
+				)
+				fig.show()
 
 
 """
