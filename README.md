@@ -17,8 +17,11 @@ $ pip install pydatasci
 >>> from pydatasci import aidb
 ```
 
-![Model Metrics](/images/chart.png)
-<div align="center"><i>Example of built-in charts for comparing model performance metrics</i></div>
+![Model Metrics](/images/chart_boomerang.png)
+<div align="center"><i>Examples of built-in charts. Seen above is the new "boomerang chart" for comparing performance across models.</i></div>
+
+![Model Metrics](/images/chart_history.png)
+
 
 
 ## Mission

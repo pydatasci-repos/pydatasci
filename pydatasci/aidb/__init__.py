@@ -1352,9 +1352,8 @@ class Batch(BaseModel):
 					, font_family = "Avenir"
 				)
 			)
-			fig.update_xaxes(gridcolor='#262B2F', tickfont=dict(color='#818487'))
-			fig.update_yaxes(gridcolor='#262B2F', tickfont=dict(color='#818487'))
-			# include the 'split' in the hover
+			fig.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
 			return fig
 		else:
 			print("There are no models that met the criteria specified.")
@@ -1458,31 +1457,38 @@ class Job(BaseModel):
 			if (algorithm.library == "Keras"):
 				# `function_model_evaluate()` runs erase the `keras.model.history` object.
 				# If blank this value is `{}` not None.
-				model_history = model.history.history
+				history = model.history.history
 
 
 			# 4. Fetch samples for evaluation.
 			# We already have `samples_train` and `samples_evaluate` in memory.
 			evaluations = {}
 			predictions = {}
+			probabilities = {}
 			confusion_matrices = {}
 
 			evaluations['train'] = algorithm.function_model_evaluate(model, samples_train, **hyperparameters)
-			predictions['train'] = algorithm.function_model_predict(model, samples_train, **hyperparameters)
+			preds, probs = algorithm.function_model_predict(model, samples_train, **hyperparameters)
+			predictions['train'] = preds
+			probabilities['train'] = probs
 			confusion_matrices['train'] = confusion_matrix(samples_train['labels_original'].flatten(), predictions['train'])
 
 			if splitset.supervision == "supervised":
 				# fold_validation.
 				if fold is not None:
 					evaluations['fold_validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-					predictions['fold_validation'] = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					predictions['fold_validation'] = preds
+					probabilities['fold_validation'] = probs
 					confusion_matrices['fold_validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['fold_validation'])
 					# at this point for folded sets, validation split may exist. test split exists and needs to be fetched.
-				
+
 				# validated and unfolded. meaning valiadtion split was already used by `samples_evaluate`.
 				if (splitset.has_validation) and (fold is None):
 					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-					predictions['validation'] = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					predictions['validation'] = preds
+					probabilities['validation'] = probs
 					confusion_matrices['validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['validation'])
 				# validated and folded. still need to fetch validation split.
 				elif (splitset.has_validation) and (fold is not None):
@@ -1492,14 +1498,18 @@ class Job(BaseModel):
 						samples_validation['features'] = feature_encoder.transform(samples_validation['features'])
 						samples_validation['labels'] = label_encoder.transform(samples_validation['labels'])
 					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
-					predictions['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
+					preds, probs  = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
+					predictions['validation'] = preds
+					probabilities['validation'] = probs
 					confusion_matrices['validation'] = confusion_matrix(samples_validation['labels_original'].flatten(), predictions['validation'])
 
 				# unvalidated.
 				if not splitset.has_validation:
 					# then test split was already used by `samples_evaluate`
 					evaluations['test'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-					predictions['test'] = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					predictions['test'] = preds
+					probabilities['test'] = probs
 					confusion_matrices['test'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['test'])
 				else:
 					# otherwise, the test split still needs to be fetched.
@@ -1509,7 +1519,9 @@ class Job(BaseModel):
 						samples_test['features'] = feature_encoder.transform(samples_test['features'])
 						samples_test['labels'] = label_encoder.transform(samples_test['labels'])
 					evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
-					predictions['test'] = algorithm.function_model_predict(model, samples_test, **hyperparameters)
+					preds, probs = algorithm.function_model_predict(model, samples_test, **hyperparameters)
+					predictions['test'] = preds
+					probabilities['test'] = probs
 					confusion_matrices['test'] = confusion_matrix(samples_test['labels_original'].flatten(), predictions['test'])
 
 				if verbose:
@@ -1528,9 +1540,10 @@ class Job(BaseModel):
 
 				r = Result.create(
 					model_file = h5_bytes
-					, model_history = model_history
+					, history = history
 					, evaluations = evaluations
 					, predictions = predictions
+					, probabilities = probabilities
 					, confusion_matrices = confusion_matrices
 					, job = j
 				)
@@ -1547,7 +1560,7 @@ class Result(BaseModel):
 	- The classes of encoded labels are all based on train labels.
 	"""
 	model_file = BlobField()
-	model_history = JSONField()
+	history = JSONField()
 	evaluations = JSONField()
 	predictions = PickleField()
 	confusion_matrices = PickleField(null=True)
@@ -1566,6 +1579,99 @@ class Result(BaseModel):
 		return model
 
 
+	def plot_history(id:int):
+		r = Result.get_by_id(id)
+		history = r.history
+		# need to check how this is structured
+		
+		df = pd.DataFrame.from_dict(history, orient='index').transpose()
+		df_loss = df[['loss','val_loss']]
+		df_loss = df_loss.rename(columns={"loss": "train_loss", "val_loss": "validation_loss"})
+		df_acc = df[['accuracy', 'val_accuracy']]
+		df_acc = df_acc.rename(columns={"accuracy": "train_accuracy", "val_accuracy": "validation_accuracy"})
+		fig_loss = px.line(
+		df_loss
+			, title = '<i>Training History: Loss</i>'
+			, line_shape = 'spline'
+		)
+		fig_loss.update_layout(
+			xaxis_title = "epochs"
+			, yaxis_title = "loss"
+			, legend_title = None
+			, font_family = "Avenir"
+			, font_color = "#FAFAFA"
+			, plot_bgcolor = "#181B1E"
+			, paper_bgcolor = "#181B1E"
+			, height = 400
+			, hoverlabel = dict(
+				bgcolor = "#0F0F0F"
+				, font_size = 15
+				, font_family = "Avenir"
+			)
+			, yaxis = dict(
+				side = "right"
+				, tickmode = 'linear'
+				, tick0 = 0.0
+				, dtick = 0.1
+			)
+			, legend = dict(
+				orientation="h"
+				, yanchor="bottom"
+				, y=1.02
+				, xanchor="right"
+				, x=1
+			)
+			, margin = dict(
+				t = 5
+				, b = 0
+			),
+		)
+		fig_loss.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		fig_loss.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+
+		fig_acc = px.line(
+		df_acc
+			, title = '<i>Training History: Accuracy</i>'
+			, line_shape = 'spline'
+		)
+		fig_acc.update_layout(
+			xaxis_title = "epochs"
+			, yaxis_title = "accuracy"
+			, legend_title = None
+			, font_family = "Avenir"
+			, font_color = "#FAFAFA"
+			, plot_bgcolor = "#181B1E"
+			, paper_bgcolor = "#181B1E"
+			, height = 400
+			, hoverlabel = dict(
+				bgcolor = "#0F0F0F"
+				, font_size = 15
+				, font_family = "Avenir"
+			)
+			, yaxis = dict(
+			side = "right"
+			, tickmode = 'linear'
+			, tick0 = 0.0
+			, dtick = 0.05
+			)
+			, legend = dict(
+				orientation="h"
+				, yanchor="bottom"
+				, y=1.02
+				, xanchor="right"
+				, x=1
+			)
+			, margin = dict(
+				t = 5
+			),
+		)
+		fig_acc.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		fig_acc.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+
+		fig_loss.show()
+		fig_acc.show()
+
+	
 	def plot_confusion_matrices(id:int):
 		r = Result.get_by_id(id)
 		cms = r.confusion_matrices
@@ -1576,18 +1682,19 @@ class Result(BaseModel):
 			for name,cm in r.confusion_matrices.items():
 				fig = px.imshow(
 					cm
-					, color_continuous_scale = px.colors.sequential.Cividis_r
+					, color_continuous_scale = px.colors.sequential.BuGn
 					, labels=dict(x="Predicted Label", y="Actual Label")
 				)
 				fig.update_layout(
-					xaxis_title = "Predicted Label"
+					title = "<i>Confusion Matrix: " + name + "</i>"
+					, xaxis_title = "Predicted Label"
 					, yaxis_title = "Actual Label"
 					, legend_title = 'Sample Count'
 					, font_family = "Avenir"
 					, font_color = "#FAFAFA"
 					, plot_bgcolor = "#181B1E"
 					, paper_bgcolor = "#181B1E"
-					, height = 200
+					, height = 150
 					, hoverlabel = dict(
 						bgcolor = "#0F0F0F"
 						, font_size = 15
@@ -1598,12 +1705,9 @@ class Result(BaseModel):
 						, tick0 = 0.0
 						, dtick = 1.0
 					)
-					, title = dict(
-						text = "<i>Confusion Matrix: " + name + "</i>"
-						, y = 0.92
-						, x = 0.50
-						, xanchor = 'center'
-						, yanchor = 'top'
+					, margin = dict(
+						b = 0
+						, t = 75
 					)
 				)
 				fig.show()
