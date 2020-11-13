@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.preprocessing import *
 
 from tqdm import tqdm
@@ -1051,6 +1052,7 @@ class Algorithm(BaseModel):
 	function_model_build = PickleField()
 	function_model_train = PickleField()
 	function_model_evaluate = PickleField()
+	function_model_predict = PickleField()
 	description = CharField(null=True)
 
 
@@ -1326,6 +1328,7 @@ class Batch(BaseModel):
 				, color = 'job_id'
 				, height = 600
 				, hover_data = ['job_id', 'split', 'accuracy', 'loss']
+				, line_shape='spline'
 			)
 			fig.update_traces(
 				mode = 'markers+lines'
@@ -1392,6 +1395,7 @@ class Job(BaseModel):
 			hyperparamcombo = j.hyperparamcombo
 			fold = j.fold
 
+
 			# 1. Fetch training samples.
 			if fold is not None:
 				foldset = fold.foldset
@@ -1409,24 +1413,33 @@ class Job(BaseModel):
 					samples_evaluate = splitset.to_numpy(splits=['test'])['test']
 				else:
 					samples_evaluate = None
-			
+
+
 			# 2. Preprocess the features and labels.
+			# For sklearn style performance metrics of OHE'd labels, we preserve the `y_true`.
+			# However, based on the algorithm type we can chose to ignore  the originals
+			# e.g. in Regression we might want to compare encoded labels to encoded predictions.
+			samples_train['labels_original'] = samples_train['labels']
+			if samples_evaluate is not None:
+				samples_evaluate['labels_original'] = samples_evaluate['labels']
+
 			if preprocess is not None:
 				# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
 				if preprocess.encoder_features is not None:
 					feature_encoder = preprocess.encoder_features
-					feature_encoder.fit(samples_train['features']) # Hmm. I need this later for test data
+					feature_encoder.fit(samples_train['features'])
 					samples_train['features'] = feature_encoder.transform(samples_train['features'])
+					if samples_evaluate is not None:
+						samples_evaluate['features'] = feature_encoder.transform(samples_evaluate['features'])
 				
 				if preprocess.encoder_labels is not None:
 					label_encoder = preprocess.encoder_labels
 					label_encoder.fit(samples_train['labels'])
 					samples_train['labels'] = label_encoder.transform(samples_train['labels'])
-				
-				if samples_evaluate is not None:
-					samples_evaluate['features'] = feature_encoder.transform(samples_evaluate['features'])
-					samples_evaluate['labels'] = label_encoder.transform(samples_evaluate['labels'])
+					if samples_evaluate is not None:
+						samples_evaluate['labels'] = label_encoder.transform(samples_evaluate['labels'])
 			
+
 			# 3. Build and Train model.
 			if hyperparamcombo is not None:
 				hyperparameters = hyperparamcombo.hyperparameters
@@ -1447,44 +1460,63 @@ class Job(BaseModel):
 				# If blank this value is `{}` not None.
 				model_history = model.history.history
 
-			# 4. Fetch remaining evaluation samples. 
+
+			# 4. Fetch samples for evaluation.
 			# We already have `samples_train` and `samples_evaluate` in memory.
 			evaluations = {}
+			predictions = {}
+			confusion_matrices = {}
+
 			evaluations['train'] = algorithm.function_model_evaluate(model, samples_train, **hyperparameters)
+			predictions['train'] = algorithm.function_model_predict(model, samples_train, **hyperparameters)
+			confusion_matrices['train'] = confusion_matrix(samples_train['labels_original'].flatten(), predictions['train'])
 
 			if splitset.supervision == "supervised":
 				# fold_validation.
 				if fold is not None:
 					evaluations['fold_validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+					predictions['fold_validation'] = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					confusion_matrices['fold_validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['fold_validation'])
 					# at this point for folded sets, validation split may exist. test split exists and needs to be fetched.
 				
 				# validated and unfolded. meaning valiadtion split was already used by `samples_evaluate`.
 				if (splitset.has_validation) and (fold is None):
 					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+					predictions['validation'] = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					confusion_matrices['validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['validation'])
 				# validated and folded. still need to fetch validation split.
 				elif (splitset.has_validation) and (fold is not None):
 					samples_validation = splitset.to_numpy(splits=['validation'])['validation']
+					samples_validation['labels_original'] = samples_validation['labels']
 					if preprocess is not None:
 						samples_validation['features'] = feature_encoder.transform(samples_validation['features'])
 						samples_validation['labels'] = label_encoder.transform(samples_validation['labels'])
 					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
+					predictions['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
+					confusion_matrices['validation'] = confusion_matrix(samples_validation['labels_original'].flatten(), predictions['validation'])
 
 				# unvalidated.
 				if not splitset.has_validation:
 					# then test split was already used by `samples_evaluate`
 					evaluations['test'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
+					predictions['test'] = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
+					confusion_matrices['test'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['test'])
 				else:
 					# otherwise, the test split still needs to be fetched.
 					samples_test = splitset.to_numpy(splits=['test'])['test']
+					samples_test['labels_original'] = samples_test['labels']
 					if preprocess is not None:
 						samples_test['features'] = feature_encoder.transform(samples_test['features'])
 						samples_test['labels'] = label_encoder.transform(samples_test['labels'])
 					evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
+					predictions['test'] = algorithm.function_model_predict(model, samples_test, **hyperparameters)
+					confusion_matrices['test'] = confusion_matrix(samples_test['labels_original'].flatten(), predictions['test'])
 
-			if verbose:
-				print("\nJob #" + str(j.id) + " results: " + str(evaluations))
+				if verbose:
+					print("\nJob #" + str(j.id) + " results: " + str(evaluations))
 			
-			# 5. Persist it.
+
+			# 6. Persist it.
 			if (algorithm.library == "Keras"):
 				h5_buffer = io.BytesIO()
 				model.save(
@@ -1498,6 +1530,8 @@ class Job(BaseModel):
 					model_file = h5_bytes
 					, model_history = model_history
 					, evaluations = evaluations
+					, predictions = predictions
+					, confusion_matrices = confusion_matrices
 					, job = j
 				)
 
@@ -1515,10 +1549,8 @@ class Result(BaseModel):
 	model_file = BlobField()
 	model_history = JSONField()
 	evaluations = JSONField()
-	#sample_predictions = JSONField()
-	#sample_actual = 
-	#prediction probabilities
-	#legend = 
+	predictions = PickleField()
+	confusion_matrices = PickleField(null=True)
 
 	job = ForeignKeyField(Job, backref='results')
 
