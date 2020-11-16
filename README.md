@@ -328,10 +328,18 @@ Again, read a Foldset into memory with `to_pandas()` and `to_numpy()` methods. N
 
 ### 7. Create an `Algorithm` aka model.
 
-We'll use two variables in our functions: `**hyperdata` and `**hyperparameters`.
 
-- `**hyperdata` makes training and evaluation samples available to your model. It knows whether or not we specified validation splits in your Splitset as well as how to handle Folds.
-- `**hyperparameters` are simply variables that we specify with the values we want to experiment with.
+#### Create variations of hyperparameters.
+
+For each parameter that you want to tune, simply provide lists of the values that you want to test. These will get passed as kwargs, `**hyperparameters`, to your model functions in the next steps.
+
+```python
+hyperparameters = {
+    "l2_neuron_count": [9, 13, 18]
+    , "optimizer": ["adamax", "adam"]
+    , "epochs": [66, 99]
+}
+```
 
 #### Create a function to build the model.
 
@@ -340,47 +348,53 @@ Here you can see we specified the variables `l1_neuron_count`, `l2_neuron_count`
 In a moment, we will make a dictionary of these variables, and they will be fed in via the `**hyperparameters` parameter.
 
 ```python
-def function_model_build(**hyperparameters, **hyperdata):
-    training_size = train_features.shape[1]
-
+def function_model_build(**hyperparameters):
     model = Sequential()
-    model.add(Dense(l1_neuron_count, input_shape=(training_size,), activation='relu', kernel_initializer='he_uniform', name='fc1'))
-    if l2_exists is True:
-    	model.add(Dense(l2_neuron_count, activation='relu', kernel_initializer='he_uniform', name='fc2'))
+    model.add(Dense(13, input_shape=(4,), activation='relu', kernel_initializer='he_uniform', name='fc1')) # first hidden layer
+    model.add(Dropout(0.2))
+    model.add(Dense(hyperparameters['l2_neuron_count'], activation='relu', kernel_initializer='he_uniform', name='fc2'))
     model.add(Dense(3, activation='softmax', name='output'))
 
-    model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer=hyperparameters['optimizer'], loss='categorical_crossentropy', metrics=['accuracy'])
+    
     return model
 ```
 
 #### Create a function to train the model.
 
+The appropriate training and evaluation samples are automatically made available to you behind the scenes based on how you designed your Splitset and/ or Foldset.
+
 ```python
-def function_model_train(**hyperparameters, **hyperdata):
-    history = model.fit(
-        train_features
-        , train_labels
+def function_model_train(model, samples_train, samples_evaluate, **hyperparameters):
+    model.fit(
+        samples_train["features"]
+        , samples_train["labels"]
         , validation_data = (
-            eval_features
-            , eval_labels
+            samples_evaluate["features"]
+            , samples_evaluate["labels"]
         )
-        , verbose = 1
-        , batch_size = batch_size
-        , epochs = epochs
+        , verbose = 0
+        , batch_size = 3
+        , epochs = hyperparameters['epochs']
+        , callbacks=[History()]
     )
-    return history
+    return model
 ```
-> If you specified a validation split in your Splitset, then `eval_features` and `eval_labels` will point to your validation split, otherwise, it will point to your test split.
-> If your model doesn't provide an evaluation history then you don't need to specify it.
+> If you created a Foldset, then your `samples_train` will point to your Fold's `folds_train_combined` and your `samples_evaluate` will point to your `fold_validation`. If you didn't create a Foldset, but did specify `test` and/ or `validation` splits in your Splitset, then `samples_evaluate` will point to those splits with a preference for the `validation` split. If your model doesn't provide an evaluation history or you only specified a `train` split in your Splitset then you don't need to worry about it.
 
-#### Create a function to evaluate the model.
+#### Create a function to predict.
+
+For most libraries, classification algorithms output probabilities as opposed to actual predictions when running `model.predict()`. Notice in the `return` line that we return both the `predictions` as well as the `probabilities`. We will use both behind the scenes when generating performance metrics.
 
 ```python
-def function_model_evaluate(**hyperparameters, **hyperdata):
-    results = model.evaluate(eval_features, eval_features, verbose=0)
-    return results
+def function_model_predict(model, samples_predict, **hyperparameters):
+    probabilities = model.predict(samples_predict['features'])
+    predictions = np.argmax(probabilities, axis=-1)
+    
+    return predictions, probabilities
 ```
-> Both validation and test splits will be fed through `eval_features` and `eval_labels`.
+> Calculating performance metrics performance metrics will not work in OHE format.
+> For classification models both 
 
 
 #### Pull it all together in creating the Algorithm.
@@ -388,9 +402,11 @@ def function_model_evaluate(**hyperparameters, **hyperdata):
 ```python
 algorithm = aidb.Algorithm.create(
     description = "dense with 1 or 2 layers"
+    , library = "Keras"
+	, analysis_type = "classification_multi"
 	, function_model_build = function_model_build
 	, function_model_train = function_model_train
-	, function_model_evaluate = function_model_evaluate
+	, function_model_predict = function_model_predict
 )
 ```
 
@@ -398,8 +414,6 @@ algorithm = aidb.Algorithm.create(
 If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods.
 
 ```python
-# refactoring this
-
 preprocess = aidb.Preprocess.from_splitset(
     splitset_id = splitset_id
     , description = "standard scaling on features"
@@ -416,18 +430,16 @@ In the future, we will provide different strategies for generating and selecting
 
 ```python
 hyperparameter_lists = {
-    "l1_neuron_count": [9, 18]
-    , "l2_exists": [True, False]
-    , "l2_neuron_count": [9, 18]
-    , "optimizer": ["adamax", "adam"]
-    , "epochs": [30, 60, 90]
-    , "batch_size": [3, 5]
+	"l1_neuron_count": [9, 18]
+	, "l2_neuron_count": [9, 18]
+	, "optimizer": ["adamax", "adam"]
+	, "epochs": [30, 60, 90]
 }
 
 hyperparamset = aidb.Hyperparamset.from_algorithm(
-    algorithm_id = algorithm.id
-    , preprocess_id = preprocess.id
-    , description = "experimenting with neuron count, layers, and epoch count"
+	algorithm_id = algorithm.id
+	, preprocess_id = preprocess.id
+	, description = "experimenting with neuron count, layers, and epoch count"
 	, hyperparameter_lists = hyperparameter_lists
 )
 ```
@@ -435,16 +447,15 @@ hyperparamset = aidb.Hyperparamset.from_algorithm(
 ### 10. Create a `Batch` of `Job`s to keep track of training.
 ```python
 batch = aidb.Batch.from_algorithm(
-    algorithm_id = algorithm.id
-    , splitset_id = splitset.id
-    , hyperparamset_id = hyperparamset.id
-    , foldset_id = foldset.id
-    , only_folded_training = False
+	algorithm_id = algorithm.id
+	, splitset_id = splitset.id
+	, hyperparamset_id = hyperparamset.id
+	, foldset_id = foldset.id
 )
 ```
 
 #### When you are ready, run the Jobs.
-The jobs will be asynchronously executed on a background thread, so that you can continue to code on the main thread. You can poll the job status.
+The jobs will be asynchronously executed on a background process, so that you can continue to code on the main thread. You can poll the job status.
 
 ```python
 batch.run_jobs()
@@ -457,8 +468,22 @@ You can stop the execution of a batch if you need to, and later resume it. If yo
 batch.stop_jobs()
 batch.run_jobs()
 ```
+
 ### 11. Examine `Results`.
-Artifacts like the model object, training history, and performance metrics are automatically be written to `Job.results`.
+Artifacts like the model object, training history, and performance metrics are automatically be written to `Job.results[0]`:
+```python
+class Result(BaseModel):
+	model_file = BlobField()
+	history = JSONField()
+	predictions = PickleField()
+	probabilities = PickleField()
+	metrics = PickleField()
+	plot_data = PickleField()
+
+	job = ForeignKeyField(Job, backref='results')
+```
+
+#### Fetching the trained model.
 
 ```python
 compiled_model = batch.jobs[0].results[0].get_model()
@@ -469,6 +494,9 @@ compiled_model
 
 
 ### 12. Visually compare the performance of your hypertuned Algorithms.
+batch.plot_performance(max_loss=0.3, min_accuracy=0.85)
+batch.jobs[0].results[0].plot_confusion_matrices()
+batch.jobs[0].results[0].plot_learning_curve()
 
 ---
 

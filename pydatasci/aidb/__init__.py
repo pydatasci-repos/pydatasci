@@ -1052,7 +1052,6 @@ class Algorithm(BaseModel):
 	analysis_type = CharField()#classification_multi, classification_binary, clustering.
 	function_model_build = PickleField()
 	function_model_train = PickleField()
-	function_model_evaluate = PickleField()
 	function_model_predict = PickleField()
 	description = CharField(null=True)
 
@@ -1269,7 +1268,7 @@ class Batch(BaseModel):
 					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
 
 
-	def plot_evaluations(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
+	def plot_performance(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
 		batch = Batch.get_by_id(id)
 		id = batch.id
 
@@ -1395,7 +1394,6 @@ class Job(BaseModel):
 
 
 	def split_regression_metrics(labels, predictions, split_name):
-		# need to make sure comparing the same encodings.
 		split_metrics = {}
 		split_metrics['r2'] = r2_score(labels, predictions)
 		split_metrics['mse'] = mean_squared_error(labels, predictions)
@@ -1529,7 +1527,6 @@ class Job(BaseModel):
 			)
 			
 			if (algorithm.library == "Keras"):
-				# `function_model_evaluate()` runs erase the `keras.model.history` object.
 				# If blank this value is `{}` not None.
 				history = model.history.history
 
@@ -1554,8 +1551,14 @@ class Job(BaseModel):
 					predictions[split] = preds
 					probabilities[split] = probs
 
-					metrics[split] = Job.split_classification_metrics(data['labels_original'], preds, probs, analysis_type)
-					plot_data[split] = Job.split_classification_plots(data['labels_original'], data['labels'], preds, probs, analysis_type)
+					metrics[split] = Job.split_classification_metrics(
+						data['labels_original'], 
+						preds, probs, analysis_type
+					)
+					plot_data[split] = Job.split_classification_plots(
+						data['labels_original'], data['labels'], 
+						preds, probs, analysis_type
+					)
 			#elif analysis_type == "regression":
 				#probabilities = None
 				#for split, data in samples.items():
