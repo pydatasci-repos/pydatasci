@@ -6,7 +6,7 @@
 # Value Proposition
 *PyDataSci* is an open source, automated machine learning (AutoML) tool for data scientists that reduces the amount of code needed to perform best practice machine learning by 95%; more science with less code.
 
-It is a Python package that records experiments in a lightweight, file-based database that works on Mac/ Linux/ Windows without any configuration required by the user. By tracking the input (samples and settings) and output (models and metrics) of each experiment, it makes machine learning reproducible; less of a black box.
+It is a Python package that records experiments in a lightweight, file-based database that works on Mac/ Linux/ Windows without any configuration required by the user. By tracking the input (samples and settings) as well as output (models and metrics) of each experiment, it makes machine learning reproducible; less of a black box.
 
 Users can either (a) queue many experiments on their desktop/ server, or (b) delegate them to run in the *PyDataSci* cloud if they outgrow their local resources. From there, model performance metrics can be visually compared in interactive charts. It is designed for use within Jupyter notebooks, but runs in any Python shell.
 
@@ -18,7 +18,7 @@ $ pip install pydatasci
 ```
 
 ![Model Metrics](/images/chart_boomerang.png)
-<div align="center"><i>Examples of built-in charts. Seen above is the new "boomerang chart" for comparing performance across models.</i></div>
+<div align="center"><i>Examples of built-in charts. Seen above is the new "boomerang chart" for comparing performance across models.</i></div><br/>
 
 ![Model Metrics](/images/chart_history.png)
 

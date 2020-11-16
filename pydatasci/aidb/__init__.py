@@ -17,7 +17,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.model_selection import train_test_split, StratifiedKFold
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+from sklearn.metrics import *
 from sklearn.preprocessing import *
 
 from tqdm import tqdm
@@ -1049,6 +1049,7 @@ class Algorithm(BaseModel):
 	# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	"""
 	library = CharField()
+	analysis_type = CharField()#classification_multi, classification_binary, clustering.
 	function_model_build = PickleField()
 	function_model_train = PickleField()
 	function_model_evaluate = PickleField()
@@ -1372,10 +1373,66 @@ class Job(BaseModel):
 	batch = ForeignKeyField(Batch, backref='jobs')
 	hyperparamcombo = ForeignKeyField(Hyperparamcombo, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
 	fold = ForeignKeyField(Fold, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
-	#preproc
 
-	# split into sub functions?
-	def run(id:int, verbose:bool=True):
+
+	def split_classification_metrics(labels_ordinal, predictions, probabilities, analysis_type):
+		if analysis_type == "classification_multi":
+			average = "weighted"
+			roc_average = "weighted"
+			roc_multi_class = "ovr"
+		elif analysis_type == "classification_binary":
+			average = "binary"
+			roc_average = "micro"
+			roc_multi_class = None
+
+		split_metrics = {}
+		split_metrics['accuracy'] = accuracy_score(labels_ordinal, predictions)
+		split_metrics['precision'] = precision_score(labels_ordinal, predictions, average=average)
+		split_metrics['recall'] = recall_score(labels_ordinal, predictions, average=average)
+		split_metrics['f1'] = f1_score(labels_ordinal, predictions, average=average)
+		split_metrics['roc_auc'] = roc_auc_score(labels_ordinal, probabilities, average=roc_average, multi_class=roc_multi_class)
+		return split_metrics
+
+
+	def split_regression_metrics(labels, predictions, split_name):
+		# need to make sure comparing the same encodings.
+		split_metrics = {}
+		split_metrics['r2'] = r2_score(labels, predictions)
+		split_metrics['mse'] = mean_squared_error(labels, predictions)
+		split_metrics['explained_variance'] = explained_variance_score(labels, predictions)
+		return split_metrics
+
+
+	def split_classification_plots(labels_ordinal, labels_ohe, predictions, probabilities, analysis_type):
+		labels_ordinal = labels_ordinal.flatten()
+		labels_ohe = labels_ohe.flatten()
+		predictions = predictions.flatten()
+		probabilities = probabilities.flatten()
+
+		split_plot_data = {}
+		if analysis_type == "classification_binary":
+			split_plot_data['confusion_matrix'] = confusion_matrix(labels_ordinal, predictions)
+			fpr, tpr, _ = roc_curve(labels_ordinal, probabilities)
+			precision, recall, _ = precision_recall_curve(labels_ordinal, probabilities)
+		elif analysis_type == "classification_multi":
+			split_plot_data['confusion_matrix'] = confusion_matrix(labels_ordinal.flatten(), predictions)
+			labels_ohe, probabilities = labels_ohe.flatten(), probabilities.flatten()
+			fpr, tpr, _ = roc_curve(labels_ohe, probabilities)
+			precision, recall, _ = precision_recall_curve(labels_ohe, probabilities)
+
+		split_plot_data['roc_curve'] = {}
+		split_plot_data['roc_curve']['fpr'] = fpr
+		split_plot_data['roc_curve']['tpr'] = tpr
+		split_plot_data['precision_recall_curve'] = {}
+		split_plot_data['precision_recall_curve']['precision'] = precision
+		split_plot_data['precision_recall_curve']['recall'] = recall
+		return split_plot_data
+
+
+	#def split_regression_plots():
+
+
+	def run(id:int, verbose:bool=False):
 		j = Job.get_by_id(id)
 		if (j.status == "Succeeded"):
 			if verbose:
@@ -1383,7 +1440,153 @@ class Job(BaseModel):
 			return j
 		elif (j.status == "Running"):
 			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as is is already running.")
+				print("\nSkipping Job #" + str(j.id) + " as it is already running.")
+			return j
+		else:
+			if verbose:
+				print("\nJob #" + str(j.id) + " starting...")
+			algorithm = j.batch.algorithm
+			analysis_type = algorithm.analysis_type
+			splitset = j.batch.splitset
+			preprocess = j.batch.hyperparamset.preprocess
+			hyperparamcombo = j.hyperparamcombo
+			fold = j.fold
+
+
+			# 1. Figure out which splits the model needs to be trained and predicted against. 
+			# The `key_*` variables dynamically determine which splits to use during model_training.
+			# ^ It is being intentionally overwritten as more complex validations/ training splits are introduced.
+			samples = {}
+			if splitset.supervision == "unsupervised":
+				samples['train'] = splitset.to_numpy(splits=['train'])['train']
+				key_train = "train"
+				key_evaluation = None
+			elif splitset.supervision == "supervised":
+				samples['test'] = splitset.to_numpy(splits=['test'])['test']
+				key_evaluation = 'test'
+				
+				if splitset.has_validation:
+					samples['validation'] = splitset.to_numpy(splits=['validation'])['validation']
+					key_evaluation = 'validation'
+					
+				if fold is not None:
+					foldset = fold.foldset
+					fold_samples_np = foldset.to_numpy(fold_index=fold.fold_index)[0]
+					samples['folds_train_combined'] = fold_samples_np['folds_train_combined']
+					samples['fold_validation'] = fold_samples_np['fold_validation']
+					
+					key_train = "folds_train_combined"
+					key_evaluation = "fold_validation"
+				elif fold is None:
+					samples['train'] = splitset.to_numpy(splits=['train'])['train']
+					key_train = "train"
+
+			# 2. Preprocess the features and labels.
+			"""
+			Preprocessing needs to be happen prior to training the model.
+			
+			For sklearn-style performance metrics of OHE'd labels, we need to preserve the pre-encoded `y_true`.
+			However, based on the algorithm type we can chose to ignore the originals
+			e.g. in Regression we might want to compare encoded labels to encoded predictions.
+
+			Here I am not going to use a `key_label` because I don't want the user to have to
+			reference it in their model functions. So I'll make a separate key for internal use.
+			This is consistent with handling features since it makes sense to overwrite that key for memory's sake. 
+			"""
+
+			for split, data in samples.items():
+				samples[split]['labels_original'] = data['labels']
+
+			if preprocess is not None:
+				# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
+				if preprocess.encoder_features is not None:
+					feature_encoder = preprocess.encoder_features
+					feature_encoder.fit(samples[key_train]['features'])
+
+					for split, data in samples.items():
+						samples[split]['features'] = feature_encoder.transform(data['features'])
+				
+				if preprocess.encoder_labels is not None:
+					label_encoder = preprocess.encoder_labels
+					label_encoder.fit(samples[key_train]['labels'])
+
+					for split, data in samples.items():
+						samples[split]['labels'] = label_encoder.transform(data['labels'])
+			
+
+			# 3. Build and Train model.
+			if hyperparamcombo is not None:
+				hyperparameters = hyperparamcombo.hyperparameters
+			elif hyperparamcombo is None:
+				hyperparameters = None
+			model = algorithm.function_model_build(**hyperparameters)
+
+			model = algorithm.function_model_train(
+				model,
+				samples[key_train],
+				samples[key_evaluation],
+				**hyperparameters
+			)
+			
+			if (algorithm.library == "Keras"):
+				# `function_model_evaluate()` runs erase the `keras.model.history` object.
+				# If blank this value is `{}` not None.
+				history = model.history.history
+
+				h5_buffer = io.BytesIO()
+				model.save(
+					h5_buffer
+					, include_optimizer = True
+					, save_format = 'h5'
+				)
+				model_bytes = h5_buffer.getvalue()
+
+
+			# 4. Fetch samples for evaluation.
+			predictions = {}
+			probabilities = {}
+			metrics = {}
+			plot_data = {}
+
+			if (analysis_type == "classification_multi") or (analysis_type == "classification_binary"):
+				for split, data in samples.items():
+					preds, probs = algorithm.function_model_predict(model, data, **hyperparameters)
+					predictions[split] = preds
+					probabilities[split] = probs
+
+					metrics[split] = Job.split_classification_metrics(data['labels_original'], preds, probs, analysis_type)
+					plot_data[split] = Job.split_classification_plots(data['labels_original'], data['labels'], preds, probs, analysis_type)
+			#elif analysis_type == "regression":
+				#probabilities = None
+				#for split, data in samples.items():
+					# preds = algorithm.function_model_predict(model, data, **hyperparameters)
+					# predictions[split] = preds
+
+			r = Result.create(
+				model_file = model_bytes
+				, history = history
+				, predictions = predictions
+				, probabilities = probabilities
+				, metrics = metrics
+				, plot_data = plot_data
+				, job = j
+			)
+
+			j.status = "Succeeded"
+			j.save()
+			return j
+
+
+	"""
+	def run_deprecated(id:int, verbose:bool=False):
+		j = Job.get_by_id(id)
+		if (j.status == "Succeeded"):
+			if verbose:
+				print("\nSkipping Job #" + str(j.id) + " as is has already succeeded.")
+			return j
+		elif (j.status == "Running"):
+			if verbose:
+				print("\nSkipping Job #" + str(j.id) + " as it is already running.")
 			return j
 		else:
 			if verbose:
@@ -1394,6 +1597,9 @@ class Job(BaseModel):
 			hyperparamcombo = j.hyperparamcombo
 			fold = j.fold
 
+			analysis_type = algorithm.analysis_type
+			if (analysis_type == "classification_multi") or (analysis_type == "classification_binary"):
+				is_analysis_classification = True
 
 			# 1. Fetch training samples.
 			if fold is not None:
@@ -1465,13 +1671,19 @@ class Job(BaseModel):
 			evaluations = {}
 			predictions = {}
 			probabilities = {}
-			confusion_matrices = {}
+			metrics = {}
+			plot_data = {}
 
 			evaluations['train'] = algorithm.function_model_evaluate(model, samples_train, **hyperparameters)
 			preds, probs = algorithm.function_model_predict(model, samples_train, **hyperparameters)
 			predictions['train'] = preds
 			probabilities['train'] = probs
-			confusion_matrices['train'] = confusion_matrix(samples_train['labels_original'].flatten(), predictions['train'])
+
+			if is_analysis_classification:
+				metrics['train'] = Job.split_classification_metrics(samples_train['labels_original'], preds, probs, analysis_type)
+				plot_data['train'] = Job.split_classification_plots(samples_train['labels_original'], samples_train['labels'], preds, probs, analysis_type)
+				print(metrics)
+				print(plot_data)
 
 			if splitset.supervision == "supervised":
 				# fold_validation.
@@ -1480,7 +1692,7 @@ class Job(BaseModel):
 					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
 					predictions['fold_validation'] = preds
 					probabilities['fold_validation'] = probs
-					confusion_matrices['fold_validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['fold_validation'])
+					#confusion_matrices['fold_validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['fold_validation'])
 					# at this point for folded sets, validation split may exist. test split exists and needs to be fetched.
 
 				# validated and unfolded. meaning valiadtion split was already used by `samples_evaluate`.
@@ -1489,7 +1701,7 @@ class Job(BaseModel):
 					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
 					predictions['validation'] = preds
 					probabilities['validation'] = probs
-					confusion_matrices['validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['validation'])
+					#confusion_matrices['validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['validation'])
 				# validated and folded. still need to fetch validation split.
 				elif (splitset.has_validation) and (fold is not None):
 					samples_validation = splitset.to_numpy(splits=['validation'])['validation']
@@ -1510,7 +1722,7 @@ class Job(BaseModel):
 					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
 					predictions['test'] = preds
 					probabilities['test'] = probs
-					confusion_matrices['test'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['test'])
+					#confusion_matrices['test'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['test'])
 				else:
 					# otherwise, the test split still needs to be fetched.
 					samples_test = splitset.to_numpy(splits=['test'])['test']
@@ -1522,7 +1734,7 @@ class Job(BaseModel):
 					preds, probs = algorithm.function_model_predict(model, samples_test, **hyperparameters)
 					predictions['test'] = preds
 					probabilities['test'] = probs
-					confusion_matrices['test'] = confusion_matrix(samples_test['labels_original'].flatten(), predictions['test'])
+					#confusion_matrices['test'] = confusion_matrix(samples_test['labels_original'].flatten(), predictions['test'])
 
 				if verbose:
 					print("\nJob #" + str(j.id) + " results: " + str(evaluations))
@@ -1539,18 +1751,20 @@ class Job(BaseModel):
 				h5_bytes = h5_buffer.getvalue()
 
 				r = Result.create(
-					model_file = h5_bytes
+					model_file = h5_bytes # errr i could just make this the var name and pull out of if statement
 					, history = history
 					, evaluations = evaluations
 					, predictions = predictions
 					, probabilities = probabilities
-					, confusion_matrices = confusion_matrices
+					, metrics = metrics
+					, plot_data = plot_data
 					, job = j
 				)
 
 			j.status = "Succeeded"
 			j.save()
 			return j
+	"""
 
 
 
@@ -1561,9 +1775,10 @@ class Result(BaseModel):
 	"""
 	model_file = BlobField()
 	history = JSONField()
-	evaluations = JSONField()
 	predictions = PickleField()
-	confusion_matrices = PickleField(null=True)
+	probabilities = PickleField()
+	metrics = PickleField()
+	plot_data = PickleField()
 
 	job = ForeignKeyField(Job, backref='results')
 
@@ -1579,7 +1794,7 @@ class Result(BaseModel):
 		return model
 
 
-	def plot_history(id:int):
+	def plot_learning_curve(id:int):
 		r = Result.get_by_id(id)
 		history = r.history
 		# need to check how this is structured
