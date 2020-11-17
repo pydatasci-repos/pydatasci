@@ -1217,7 +1217,10 @@ class Batch(BaseModel):
 		jobs = Job.select().join(Batch).where(Batch.id == batch.id).order_by(Job.status.desc())
 
 		statuses = Batch.get_statuses(id=batch.id)
-		if "Succeeded" in statuses.values():
+		all_succeeded = all(i == "Succeeded" for i in statuses.values())
+		if all_succeeded:
+			print("\nAll jobs are already complete.\n")
+		elif not (all_succeeded) and ("Succeeded" in statuses.values()):
 			print("\nResuming jobs...\n")
 
 		proc_name = "aidb_batch_" + str(batch.id)
@@ -1269,9 +1272,7 @@ class Batch(BaseModel):
 					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
 
 
-	def plot_performance(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
-		batch = Batch.get_by_id(id)
-		id = batch.id
+	def metrics_to_pandas(id:int):
 		metric_dicts = Result.select(
 			Result.id, Result.metrics
 		).join(Job).join(Batch).where(Batch.id == id).dicts()
@@ -1291,6 +1292,12 @@ class Batch(BaseModel):
 				job_metrics.append(split_metrics)
 
 		df = pd.DataFrame.from_records(job_metrics)
+		return df
+
+
+	def plot_performance(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
+		df = Batch.metrics_to_pandas(id)
+
 		# Now we need to filter the df based on the specified criteria.
 		qry_str = "(loss >= {}) & (accuracy <= {})".format(max_loss, min_accuracy)
 		failed = df.query(qry_str)
@@ -1304,7 +1311,7 @@ class Batch(BaseModel):
 			print("There are no models that met the criteria specified.")
 		else:
 			fig = px.line(
-				df
+				df_passed
 				, title = '<i>Models Metrics by Split</i>'
 				, x = 'loss'
 				, y = 'accuracy'
@@ -1339,99 +1346,6 @@ class Batch(BaseModel):
 			fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
 			fig.show()
 
-
-	"""
-	def plot_performance_old(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
-		batch = Batch.get_by_id(id)
-		id = batch.id
-
-
-		# ORM `.dicts()` http://docs.peewee-orm.com/en/latest/peewee/querying.html
-		evaluation_dicts = Result.select(
-			Result.id, Result.evaluations
-		).join(Job).join(Batch).where(Batch.id == id).dicts()
-
-		data_names = list(evaluation_dicts[0]['evaluations'].keys())
-
-		# need to extract each instance from the model object
-		evaluation_dicts = [ed for ed in evaluation_dicts]
-
-		dicts_by_split = []
-
-		# Create a separate dictionary for each split.
-		# Prune out the Jobs if any of the splits didn't meet the criteria.
-		for d in evaluation_dicts:
-			rows = []
-			checks = []
-			for k in data_names:
-				pack = {}
-				loss = d['evaluations'][k][0]
-				acc = d['evaluations'][k][1]
-
-				if (loss >= max_loss) or (acc <= min_accuracy):
-					failed = True
-				else:
-					failed = False
-					# do the rounding after the checks.
-					loss = round(loss, 3)
-					acc = round(acc, 3)
-					pack['loss'] = loss
-					pack['accuracy'] = acc
-					# Manipulate so that `split` is it's own column is easy to plot.
-					pack['split'] = k
-					# Rename key to be obvious to user on the chart.
-					pack['job_id'] = d['id']
-
-				checks.append(failed)
-				rows.append(pack)
-			if True in checks:
-				pass
-			else:
-				for r in rows:
-					dicts_by_split.append(r)
-
-		if len(dicts_by_split) > 0:
-			# pandas from list of dicts: https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.from_records.html
-			df = pd.DataFrame.from_records(dicts_by_split)
-
-			fig = px.line(
-				df
-				, title = '<i>Models Metrics by Split ' + str(data_names) + '</i>'
-				, x = 'loss'
-				, y = 'accuracy'
-				, color = 'job_id'
-				, height = 600
-				, hover_data = ['job_id', 'split', 'accuracy', 'loss']
-				, line_shape='spline'
-			)
-			fig.update_traces(
-				mode = 'markers+lines'
-				, line = dict(width = 2)
-				, marker = dict(
-					size = 8
-					, line = dict(
-						width = 2
-						, color = 'white'
-					)
-				)
-			)
-			fig.update_layout(
-				font_family = "Avenir"
-				, font_color = "#FAFAFA"
-				, plot_bgcolor = "#181B1E"
-				, paper_bgcolor = "#181B1E"
-				, hoverlabel = dict(
-					bgcolor = "#0F0F0F"
-					, font_size = 15
-					, font_family = "Avenir"
-				)
-			)
-			fig.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
-			fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
-			fig.show()
-		else:
-			print("There are no models that met the criteria specified.")
-	"""
 
 
 
@@ -1691,8 +1605,11 @@ class Result(BaseModel):
 		df = pd.DataFrame.from_dict(history, orient='index').transpose()
 		df_loss = df[['loss','val_loss']]
 		df_loss = df_loss.rename(columns={"loss": "train_loss", "val_loss": "validation_loss"})
+		df_loss = df_loss.round(3)
 		df_acc = df[['accuracy', 'val_accuracy']]
 		df_acc = df_acc.rename(columns={"accuracy": "train_accuracy", "val_accuracy": "validation_accuracy"})
+		df_acc = df_acc.round(3)
+
 		fig_loss = px.line(
 			df_loss
 			, title = '<i>Training History: Loss</i>'
@@ -1833,6 +1750,8 @@ class Result(BaseModel):
 			df['split'] = split
 			dfs.append(df)
 		dfs = pd.concat(dfs, ignore_index=True)
+		dfs = dfs.round(3)
+
 		fig = px.line(
 			dfs
 			, x = 'recall'
@@ -1888,6 +1807,7 @@ class Result(BaseModel):
 			dfs.append(df)
 
 		dfs = pd.concat(dfs, ignore_index=True)
+		dfs = dfs.round(3)
 
 		fig = px.line(
 			dfs
