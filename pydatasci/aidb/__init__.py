@@ -1362,23 +1362,27 @@ class Job(BaseModel):
 	fold = ForeignKeyField(Fold, deferrable='INITIALLY DEFERRED', null=True, backref='jobs')
 
 
-	def split_classification_metrics(labels_ordinal, predictions, probabilities, analysis_type):
-		if analysis_type == "classification_multi":
-			average = "weighted"
-			roc_average = "weighted"
-			roc_multi_class = "ovr"
-		elif analysis_type == "classification_binary":
+	def split_classification_metrics(labels_processed, predictions, probabilities, analysis_type):
+		if analysis_type == "classification_binary":
 			average = "binary"
 			roc_average = "micro"
 			roc_multi_class = None
-
+		elif analysis_type == "classification_multi":
+			average = "weighted"
+			roc_average = "weighted"
+			roc_multi_class = "ovr"
+			
 		split_metrics = {}
-		split_metrics['accuracy'] = accuracy_score(labels_ordinal, predictions)
-		split_metrics['precision'] = precision_score(labels_ordinal, predictions, average=average)
-		split_metrics['recall'] = recall_score(labels_ordinal, predictions, average=average)
-		split_metrics['f1'] = f1_score(labels_ordinal, predictions, average=average)
+		# Let the classification_multi labels hit this metric in OHE format.
+		split_metrics['roc_auc'] = roc_auc_score(labels_processed, probabilities, average=roc_average, multi_class=roc_multi_class)
+		# Then convert the classification_multi labels ordinal format.
+		if analysis_type == "classification_multi":
+			labels_processed = np.argmax(labels_processed, axis=1)
 
-		split_metrics['roc_auc'] = roc_auc_score(labels_ordinal, probabilities, average=roc_average, multi_class=roc_multi_class)
+		split_metrics['accuracy'] = accuracy_score(labels_processed, predictions)
+		split_metrics['precision'] = precision_score(labels_processed, predictions, average=average)
+		split_metrics['recall'] = recall_score(labels_processed, predictions, average=average)
+		split_metrics['f1'] = f1_score(labels_processed, predictions, average=average)
 		return split_metrics
 
 
@@ -1390,22 +1394,26 @@ class Job(BaseModel):
 		return split_metrics
 
 
-	def split_classification_plots(labels_ordinal, labels_ohe, predictions, probabilities, analysis_type):
-		labels_ordinal = labels_ordinal.flatten()
-		labels_ohe = labels_ohe.flatten()
+	def split_classification_plots(labels_processed, predictions, probabilities, analysis_type):
 		predictions = predictions.flatten()
 		probabilities = probabilities.flatten()
-
 		split_plot_data = {}
+		
 		if analysis_type == "classification_binary":
-			split_plot_data['confusion_matrix'] = confusion_matrix(labels_ordinal, predictions)
-			fpr, tpr, _ = roc_curve(labels_ordinal, probabilities)
-			precision, recall, _ = precision_recall_curve(labels_ordinal, probabilities)
+			labels_processed = labels_processed.flatten()
+			split_plot_data['confusion_matrix'] = confusion_matrix(labels_processed, predictions)
+			fpr, tpr, _ = roc_curve(labels_processed, probabilities)
+			precision, recall, _ = precision_recall_curve(labels_processed, probabilities)
+		
 		elif analysis_type == "classification_multi":
-			split_plot_data['confusion_matrix'] = confusion_matrix(labels_ordinal.flatten(), predictions)
-			labels_ohe, probabilities = labels_ohe.flatten(), probabilities.flatten()
-			fpr, tpr, _ = roc_curve(labels_ohe, probabilities)
-			precision, recall, _ = precision_recall_curve(labels_ohe, probabilities)
+			# Flatten OHE labels for use with probabilities.
+			labels_flat = labels_processed.flatten()
+			fpr, tpr, _ = roc_curve(labels_flat, probabilities)
+			precision, recall, _ = precision_recall_curve(labels_flat, probabilities)
+
+			# Then convert unflat OHE to ordinal format for use with predictions.
+			labels_ordinal = np.argmax(labels_processed, axis=1)
+			split_plot_data['confusion_matrix'] = confusion_matrix(labels_ordinal, predictions)
 
 		split_plot_data['roc_curve'] = {}
 		split_plot_data['roc_curve']['fpr'] = fpr
@@ -1468,23 +1476,10 @@ class Job(BaseModel):
 					key_train = "train"
 
 			# 2. Preprocess the features and labels.
-			"""
-			Preprocessing needs to be happen prior to training the model.
-			
-			For sklearn-style performance metrics of OHE'd labels, we need to preserve the pre-encoded `y_true`.
-			However, based on the algorithm type we can chose to ignore the originals
-			e.g. in Regression we might want to compare encoded labels to encoded predictions.
-
-			Here I am not going to use a `key_label` because I don't want the user to have to
-			reference it in their model functions. So I'll make a separate key for internal use.
-			This is consistent with handling features since it makes sense to overwrite that key for memory's sake. 
-			"""
-
-			for split, data in samples.items():
-				samples[split]['labels_original'] = data['labels']
+			# Preprocessing happens prior to training the model.
 
 			if preprocess is not None:
-				# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
+				# Remember, you only `.fit()` on training data and then apply transforms to other splits/ folds.
 				if preprocess.encoder_features is not None:
 					feature_encoder = preprocess.encoder_features
 					feature_encoder.fit(samples[key_train]['features'])
@@ -1513,7 +1508,7 @@ class Job(BaseModel):
 				samples[key_evaluation],
 				**hyperparameters
 			)
-			
+
 			if (algorithm.library == "Keras"):
 				# If blank this value is `{}` not None.
 				history = model.history.history
@@ -1540,11 +1535,11 @@ class Job(BaseModel):
 					probabilities[split] = probs
 
 					metrics[split] = Job.split_classification_metrics(
-						data['labels_original'], 
+						data['labels'], 
 						preds, probs, analysis_type
 					)
 					plot_data[split] = Job.split_classification_plots(
-						data['labels_original'], data['labels'], 
+						data['labels'], 
 						preds, probs, analysis_type
 					)
 					metrics[split]['loss'] = algorithm.function_model_loss(model, data)
@@ -1716,7 +1711,7 @@ class Result(BaseModel):
 				, font_color = "#FAFAFA"
 				, plot_bgcolor = "#181B1E"
 				, paper_bgcolor = "#181B1E"
-				, height = 150
+				, height = 225 # if too small, it won't render in Jupyter.
 				, hoverlabel = dict(
 					bgcolor = "#0F0F0F"
 					, font_size = 15
