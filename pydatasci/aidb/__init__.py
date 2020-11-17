@@ -1053,6 +1053,7 @@ class Algorithm(BaseModel):
 	function_model_build = PickleField()
 	function_model_train = PickleField()
 	function_model_predict = PickleField()
+	function_model_loss = PickleField() # do clustering algs have loss?
 	description = CharField(null=True)
 
 
@@ -1271,6 +1272,79 @@ class Batch(BaseModel):
 	def plot_performance(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
 		batch = Batch.get_by_id(id)
 		id = batch.id
+		metric_dicts = Result.select(
+			Result.id, Result.metrics
+		).join(Job).join(Batch).where(Batch.id == id).dicts()
+
+		job_metrics = []
+		# The metrics of each split are grouped under the job id.
+		# Here we break them out so that each split is labeled with its own job id.
+		for d in metric_dicts:
+			for split, data in d['metrics'].items():
+				split_metrics = {}
+				split_metrics['job_id'] = d['id']
+				split_metrics['split'] = split
+
+				for k, v in data.items():
+					split_metrics[k] = v
+
+				job_metrics.append(split_metrics)
+
+		df = pd.DataFrame.from_records(job_metrics)
+		# Now we need to filter the df based on the specified criteria.
+		qry_str = "(loss >= {}) & (accuracy <= {})".format(max_loss, min_accuracy)
+		failed = df.query(qry_str)
+		failed_jobs = failed['job_id'].to_list()
+		failed_jobs_unique = list(set(failed_jobs))
+		# Here the `~` inverts it to mean `.isNotIn()`
+		df_passed = df[~df['job_id'].isin(failed_jobs_unique)]
+		df_passed = df_passed.round(3)
+
+		if df_passed.empty:
+			print("There are no models that met the criteria specified.")
+		else:
+			fig = px.line(
+				df
+				, title = '<i>Models Metrics by Split</i>'
+				, x = 'loss'
+				, y = 'accuracy'
+				, color = 'job_id'
+				, height = 600
+				, hover_data = ['job_id', 'split', 'accuracy', 'loss']
+				, line_shape='spline'
+			)
+			fig.update_traces(
+				mode = 'markers+lines'
+				, line = dict(width = 2)
+				, marker = dict(
+					size = 8
+					, line = dict(
+						width = 2
+						, color = 'white'
+					)
+				)
+			)
+			fig.update_layout(
+				font_family = "Avenir"
+				, font_color = "#FAFAFA"
+				, plot_bgcolor = "#181B1E"
+				, paper_bgcolor = "#181B1E"
+				, hoverlabel = dict(
+					bgcolor = "#0F0F0F"
+					, font_size = 15
+					, font_family = "Avenir"
+				)
+			)
+			fig.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			fig.show()
+
+
+	"""
+	def plot_performance_old(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
+		batch = Batch.get_by_id(id)
+		id = batch.id
+
 
 		# ORM `.dicts()` http://docs.peewee-orm.com/en/latest/peewee/querying.html
 		evaluation_dicts = Result.select(
@@ -1354,10 +1428,10 @@ class Batch(BaseModel):
 			)
 			fig.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
 			fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
-			return fig
+			fig.show()
 		else:
 			print("There are no models that met the criteria specified.")
-
+	"""
 
 
 
@@ -1389,6 +1463,7 @@ class Job(BaseModel):
 		split_metrics['precision'] = precision_score(labels_ordinal, predictions, average=average)
 		split_metrics['recall'] = recall_score(labels_ordinal, predictions, average=average)
 		split_metrics['f1'] = f1_score(labels_ordinal, predictions, average=average)
+
 		split_metrics['roc_auc'] = roc_auc_score(labels_ordinal, probabilities, average=roc_average, multi_class=roc_multi_class)
 		return split_metrics
 
@@ -1449,7 +1524,6 @@ class Job(BaseModel):
 			preprocess = j.batch.hyperparamset.preprocess
 			hyperparamcombo = j.hyperparamcombo
 			fold = j.fold
-
 
 			# 1. Figure out which splits the model needs to be trained and predicted against. 
 			# The `key_*` variables dynamically determine which splits to use during model_training.
@@ -1547,7 +1621,7 @@ class Job(BaseModel):
 
 			if (analysis_type == "classification_multi") or (analysis_type == "classification_binary"):
 				for split, data in samples.items():
-					preds, probs = algorithm.function_model_predict(model, data, **hyperparameters)
+					preds, probs = algorithm.function_model_predict(model, data)
 					predictions[split] = preds
 					probabilities[split] = probs
 
@@ -1559,10 +1633,12 @@ class Job(BaseModel):
 						data['labels_original'], data['labels'], 
 						preds, probs, analysis_type
 					)
+					metrics[split]['loss'] = algorithm.function_model_loss(model, data)
+
 			#elif analysis_type == "regression":
 				#probabilities = None
 				#for split, data in samples.items():
-					# preds = algorithm.function_model_predict(model, data, **hyperparameters)
+					# preds = algorithm.function_model_predict(model, data)
 					# predictions[split] = preds
 
 			r = Result.create(
@@ -1578,196 +1654,6 @@ class Job(BaseModel):
 			j.status = "Succeeded"
 			j.save()
 			return j
-
-
-	"""
-	def run_deprecated(id:int, verbose:bool=False):
-		j = Job.get_by_id(id)
-		if (j.status == "Succeeded"):
-			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as is has already succeeded.")
-			return j
-		elif (j.status == "Running"):
-			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as it is already running.")
-			return j
-		else:
-			if verbose:
-				print("\nJob #" + str(j.id) + " starting...")
-			algorithm = j.batch.algorithm
-			splitset = j.batch.splitset
-			preprocess = j.batch.hyperparamset.preprocess
-			hyperparamcombo = j.hyperparamcombo
-			fold = j.fold
-
-			analysis_type = algorithm.analysis_type
-			if (analysis_type == "classification_multi") or (analysis_type == "classification_binary"):
-				is_analysis_classification = True
-
-			# 1. Fetch training samples.
-			if fold is not None:
-				foldset = fold.foldset
-				fold_samples_np = foldset.to_numpy(fold_index=fold.fold_index)[0]
-
-				samples_train = fold_samples_np['folds_train_combined']
-				# This `samples_evaluate` is just for the training validation history.
-				# We will use the Splitset validation split to formally evaluate later.
-				samples_evaluate = fold_samples_np['fold_validation']
-			else:
-				samples_train = splitset.to_numpy(splits=['train'])['train']
-				if splitset.has_validation:
-					samples_evaluate = splitset.to_numpy(splits=['validation'])['validation']
-				elif splitset.supervision == "supervised":
-					samples_evaluate = splitset.to_numpy(splits=['test'])['test']
-				else:
-					samples_evaluate = None
-
-
-			# 2. Preprocess the features and labels.
-			# For sklearn style performance metrics of OHE'd labels, we preserve the `y_true`.
-			# However, based on the algorithm type we can chose to ignore  the originals
-			# e.g. in Regression we might want to compare encoded labels to encoded predictions.
-			samples_train['labels_original'] = samples_train['labels']
-			if samples_evaluate is not None:
-				samples_evaluate['labels_original'] = samples_evaluate['labels']
-
-			if preprocess is not None:
-				# Remember, you only .fit() to training data and then apply transforms to other splits/ folds.
-				if preprocess.encoder_features is not None:
-					feature_encoder = preprocess.encoder_features
-					feature_encoder.fit(samples_train['features'])
-					samples_train['features'] = feature_encoder.transform(samples_train['features'])
-					if samples_evaluate is not None:
-						samples_evaluate['features'] = feature_encoder.transform(samples_evaluate['features'])
-				
-				if preprocess.encoder_labels is not None:
-					label_encoder = preprocess.encoder_labels
-					label_encoder.fit(samples_train['labels'])
-					samples_train['labels'] = label_encoder.transform(samples_train['labels'])
-					if samples_evaluate is not None:
-						samples_evaluate['labels'] = label_encoder.transform(samples_evaluate['labels'])
-			
-
-			# 3. Build and Train model.
-			if hyperparamcombo is not None:
-				hyperparameters = hyperparamcombo.hyperparameters
-			else:
-				hyperparameters = None
-			
-			model = algorithm.function_model_build(**hyperparameters)
-
-			model = algorithm.function_model_train(
-				model,
-				samples_train,
-				samples_evaluate,
-				**hyperparameters
-			)
-			
-			if (algorithm.library == "Keras"):
-				# `function_model_evaluate()` runs erase the `keras.model.history` object.
-				# If blank this value is `{}` not None.
-				history = model.history.history
-
-
-			# 4. Fetch samples for evaluation.
-			# We already have `samples_train` and `samples_evaluate` in memory.
-			evaluations = {}
-			predictions = {}
-			probabilities = {}
-			metrics = {}
-			plot_data = {}
-
-			evaluations['train'] = algorithm.function_model_evaluate(model, samples_train, **hyperparameters)
-			preds, probs = algorithm.function_model_predict(model, samples_train, **hyperparameters)
-			predictions['train'] = preds
-			probabilities['train'] = probs
-
-			if is_analysis_classification:
-				metrics['train'] = Job.split_classification_metrics(samples_train['labels_original'], preds, probs, analysis_type)
-				plot_data['train'] = Job.split_classification_plots(samples_train['labels_original'], samples_train['labels'], preds, probs, analysis_type)
-				print(metrics)
-				print(plot_data)
-
-			if splitset.supervision == "supervised":
-				# fold_validation.
-				if fold is not None:
-					evaluations['fold_validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
-					predictions['fold_validation'] = preds
-					probabilities['fold_validation'] = probs
-					#confusion_matrices['fold_validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['fold_validation'])
-					# at this point for folded sets, validation split may exist. test split exists and needs to be fetched.
-
-				# validated and unfolded. meaning valiadtion split was already used by `samples_evaluate`.
-				if (splitset.has_validation) and (fold is None):
-					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
-					predictions['validation'] = preds
-					probabilities['validation'] = probs
-					#confusion_matrices['validation'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['validation'])
-				# validated and folded. still need to fetch validation split.
-				elif (splitset.has_validation) and (fold is not None):
-					samples_validation = splitset.to_numpy(splits=['validation'])['validation']
-					samples_validation['labels_original'] = samples_validation['labels']
-					if preprocess is not None:
-						samples_validation['features'] = feature_encoder.transform(samples_validation['features'])
-						samples_validation['labels'] = label_encoder.transform(samples_validation['labels'])
-					evaluations['validation'] = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
-					preds, probs  = algorithm.function_model_evaluate(model, samples_validation, **hyperparameters)
-					predictions['validation'] = preds
-					probabilities['validation'] = probs
-					confusion_matrices['validation'] = confusion_matrix(samples_validation['labels_original'].flatten(), predictions['validation'])
-
-				# unvalidated.
-				if not splitset.has_validation:
-					# then test split was already used by `samples_evaluate`
-					evaluations['test'] = algorithm.function_model_evaluate(model, samples_evaluate, **hyperparameters)
-					preds, probs = algorithm.function_model_predict(model, samples_evaluate, **hyperparameters)
-					predictions['test'] = preds
-					probabilities['test'] = probs
-					#confusion_matrices['test'] = confusion_matrix(samples_evaluate['labels_original'].flatten(), predictions['test'])
-				else:
-					# otherwise, the test split still needs to be fetched.
-					samples_test = splitset.to_numpy(splits=['test'])['test']
-					samples_test['labels_original'] = samples_test['labels']
-					if preprocess is not None:
-						samples_test['features'] = feature_encoder.transform(samples_test['features'])
-						samples_test['labels'] = label_encoder.transform(samples_test['labels'])
-					evaluations['test'] = algorithm.function_model_evaluate(model, samples_test, **hyperparameters)
-					preds, probs = algorithm.function_model_predict(model, samples_test, **hyperparameters)
-					predictions['test'] = preds
-					probabilities['test'] = probs
-					#confusion_matrices['test'] = confusion_matrix(samples_test['labels_original'].flatten(), predictions['test'])
-
-				if verbose:
-					print("\nJob #" + str(j.id) + " results: " + str(evaluations))
-			
-
-			# 6. Persist it.
-			if (algorithm.library == "Keras"):
-				h5_buffer = io.BytesIO()
-				model.save(
-					h5_buffer
-					, include_optimizer = True
-					, save_format = 'h5'
-				)
-				h5_bytes = h5_buffer.getvalue()
-
-				r = Result.create(
-					model_file = h5_bytes # errr i could just make this the var name and pull out of if statement
-					, history = history
-					, evaluations = evaluations
-					, predictions = predictions
-					, probabilities = probabilities
-					, metrics = metrics
-					, plot_data = plot_data
-					, job = j
-				)
-
-			j.status = "Succeeded"
-			j.save()
-			return j
-	"""
 
 
 
@@ -1788,7 +1674,7 @@ class Result(BaseModel):
 
 	def get_model(id:int):
 		r = Result.get_by_id(id)
-		algorithm = r.job.algorithm
+		algorithm = r.job.batch.algorithm
 		model_bytes = r.model_file
 		model_bytesio = io.BytesIO(model_bytes)
 		if (algorithm.library == "Keras"):
@@ -1808,7 +1694,7 @@ class Result(BaseModel):
 		df_acc = df[['accuracy', 'val_accuracy']]
 		df_acc = df_acc.rename(columns={"accuracy": "train_accuracy", "val_accuracy": "validation_accuracy"})
 		fig_loss = px.line(
-		df_loss
+			df_loss
 			, title = '<i>Training History: Loss</i>'
 			, line_shape = 'spline'
 		)
@@ -1890,45 +1776,170 @@ class Result(BaseModel):
 		fig_acc.show()
 
 	
-	def plot_confusion_matrices(id:int):
+	def plot_confusion_matrix(id:int):
 		r = Result.get_by_id(id)
-		cms = r.confusion_matrices
+		result_plot_data = r.plot_data
+
+		cm_by_split = {}
+		for split, data in result_plot_data.items():
+			cm_by_split[split] = data['confusion_matrix']
 		
-		if cms is None:
-			print("\nNot confusion matrices to plot.\n")
-		else:
-			for name,cm in r.confusion_matrices.items():
-				fig = px.imshow(
-					cm
-					, color_continuous_scale = px.colors.sequential.BuGn
-					, labels=dict(x="Predicted Label", y="Actual Label")
-				)
-				fig.update_layout(
-					title = "<i>Confusion Matrix: " + name + "</i>"
-					, xaxis_title = "Predicted Label"
-					, yaxis_title = "Actual Label"
-					, legend_title = 'Sample Count'
+		for split, cm in cm_by_split.items():
+			fig = px.imshow(
+				cm
+				, color_continuous_scale = px.colors.sequential.BuGn
+				, labels=dict(x="Predicted Label", y="Actual Label")
+			)
+			fig.update_layout(
+				title = "<i>Confusion Matrix: " + split + "</i>"
+				, xaxis_title = "Predicted Label"
+				, yaxis_title = "Actual Label"
+				, legend_title = 'Sample Count'
+				, font_family = "Avenir"
+				, font_color = "#FAFAFA"
+				, plot_bgcolor = "#181B1E"
+				, paper_bgcolor = "#181B1E"
+				, height = 150
+				, hoverlabel = dict(
+					bgcolor = "#0F0F0F"
+					, font_size = 15
 					, font_family = "Avenir"
-					, font_color = "#FAFAFA"
-					, plot_bgcolor = "#181B1E"
-					, paper_bgcolor = "#181B1E"
-					, height = 150
-					, hoverlabel = dict(
-						bgcolor = "#0F0F0F"
-						, font_size = 15
-						, font_family = "Avenir"
-					)
-					, yaxis = dict(
-						tickmode = 'linear'
-						, tick0 = 0.0
-						, dtick = 1.0
-					)
-					, margin = dict(
-						b = 0
-						, t = 75
-					)
 				)
-				fig.show()
+				, yaxis = dict(
+					tickmode = 'linear'
+					, tick0 = 0.0
+					, dtick = 1.0
+				)
+				, margin = dict(
+					b = 0
+					, t = 75
+				)
+			)
+			fig.show()
+
+	def plot_precision_recall(id:int):
+		r = Result.get_by_id(id)
+		result_plot_data = r.plot_data
+
+		pr_by_split = {}
+		for split, data in result_plot_data.items():
+			pr_by_split[split] = data['precision_recall_curve']
+
+		dfs = []
+		for split, data in pr_by_split.items():
+			df = pd.DataFrame()
+			df['precision'] = pd.Series(pr_by_split[split]['precision'])
+			df['recall'] = pd.Series(pr_by_split[split]['recall'])
+			df['split'] = split
+			dfs.append(df)
+		dfs = pd.concat(dfs, ignore_index=True)
+		fig = px.line(
+			dfs
+			, x = 'recall'
+			, y = 'precision'
+			, color = 'split'
+			, title = '<i>Precision-Recall Curves</i>'
+		)
+		fig.update_layout(
+			legend_title = None
+			, font_family = "Avenir"
+			, font_color = "#FAFAFA"
+			, plot_bgcolor = "#181B1E"
+			, paper_bgcolor = "#181B1E"
+			, height = 500
+			, hoverlabel = dict(
+				bgcolor = "#0F0F0F"
+				, font_size = 15
+				, font_family = "Avenir"
+			)
+			, yaxis = dict(
+				side = "right"
+				, tickmode = 'linear'
+				, tick0 = 0.0
+				, dtick = 0.05
+			)
+			, legend = dict(
+				orientation="h"
+				, yanchor="bottom"
+				, y=1.02
+				, xanchor="right"
+				, x=1
+			)
+		)
+		fig.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		fig.show()
+
+
+	def plot_roc_curve(id:int):
+		r = Result.get_by_id(id)
+		result_plot_data = r.plot_data
+
+		roc_by_split = {}
+		for split, data in result_plot_data.items():
+			roc_by_split[split] = data['roc_curve']
+
+		dfs = []
+		for split, data in roc_by_split.items():
+			df = pd.DataFrame()
+			df['fpr'] = pd.Series(roc_by_split[split]['fpr'])
+			df['tpr'] = pd.Series(roc_by_split[split]['tpr'])
+			df['split'] = split
+			dfs.append(df)
+
+		dfs = pd.concat(dfs, ignore_index=True)
+
+		fig = px.line(
+			dfs
+			, x = 'fpr'
+			, y = 'tpr'
+			, color = 'split'
+			, title = '<i>Receiver Operating Characteristic (ROC) Curves</i>'
+			#, line_shape = 'spline'
+		)
+		fig.update_layout(
+			legend_title = None
+			, font_family = "Avenir"
+			, font_color = "#FAFAFA"
+			, plot_bgcolor = "#181B1E"
+			, paper_bgcolor = "#181B1E"
+			, height = 500
+			, hoverlabel = dict(
+				bgcolor = "#0F0F0F"
+				, font_size = 15
+				, font_family = "Avenir"
+			)
+			, xaxis = dict(
+				title = "False Positive Rate (FPR)"
+				, tick0 = 0.00
+				, range = [-0.025,1]
+			)
+			, yaxis = dict(
+				title = "True Positive Rate (TPR)"
+				, side = "left"
+				, tickmode = 'linear'
+				, tick0 = 0.00
+				, dtick = 0.05
+				, range = [0,1.05]
+			)
+			, legend = dict(
+				orientation="h"
+				, yanchor="bottom"
+				, y=1.02
+				, xanchor="right"
+				, x=1
+			)
+			, shapes=[
+				dict(
+					type = 'line'
+					, y0=0, y1=1
+					, x0=0, x1=1
+					, line = dict(dash='dot', width=2, color='#3b4043')
+			)]
+		)
+		fig.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		fig.show()
 
 
 """

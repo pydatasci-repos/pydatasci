@@ -387,7 +387,7 @@ def function_model_train(model, samples_train, samples_evaluate, **hyperparamete
 For most libraries, classification algorithms output probabilities as opposed to actual predictions when running `model.predict()`. Notice in the `return` line that we return both the `predictions` as well as the `probabilities`. We will use both behind the scenes when generating performance metrics.
 
 ```python
-def function_model_predict(model, samples_predict, **hyperparameters):
+def function_model_predict(model, samples_predict):
     probabilities = model.predict(samples_predict['features'])
     predictions = np.argmax(probabilities, axis=-1)
     
@@ -396,6 +396,17 @@ def function_model_predict(model, samples_predict, **hyperparameters):
 > Calculating performance metrics performance metrics will not work in OHE format.
 > For classification models both 
 
+
+#### Create a function to calculate loss.
+
+Most deep learning models provide an `.evaluate()` method in order to calculate loss.
+
+```python
+def function_model_loss(model, samples_evaluate):
+    loss, _ = model.evaluate(samples_evaluate['features'], samples_evaluate['labels'], verbose=0)
+    return loss
+```
+> In contrast to openly specifying a loss function, for example `keras.losses.<loss_fn>()`, the use of `.evaluate()` is consistent because it comes from the compiled model. Also, although `model.compiled_loss` would be more efficient, it requires making encoded `y_true` and `y_pred` available to the user, whereas `.evaluate()` can be called with the same arugments as the other `function_model_*` and many deep learning libraries support this approach. 
 
 #### Pull it all together in creating the Algorithm.
 
@@ -407,6 +418,7 @@ algorithm = aidb.Algorithm.create(
 	, function_model_build = function_model_build
 	, function_model_train = function_model_train
 	, function_model_predict = function_model_predict
+	, function_model_loss = function_model_loss
 )
 ```
 
@@ -469,8 +481,8 @@ batch.stop_jobs()
 batch.run_jobs()
 ```
 
-### 11. Examine `Results`.
-Artifacts like the model object, training history, and performance metrics are automatically be written to `Job.results[0]`:
+### 11. Assess the `Results`.
+The following artifacts are automatically written to `Job.results[0]` after training:
 ```python
 class Result(BaseModel):
 	model_file = BlobField()
@@ -494,10 +506,25 @@ compiled_model
 
 
 ### 12. Visually compare the performance of your hypertuned Algorithms.
-batch.plot_performance(max_loss=0.3, min_accuracy=0.85)
-batch.jobs[0].results[0].plot_confusion_matrices()
-batch.jobs[0].results[0].plot_learning_curve()
 
+There are several methods for automated plotting that pull directly from the persisted metrics of each `Job`.
+
+These vary based upon the `analysis_type` of the `Algorithm`.
+
+#### Classification metrics:
+
+Charts about aggregate performance metrics for the whole `Batch`.
+```python
+batch.plot_performance(max_loss=0.3, min_accuracy=0.85)
+```
+
+Charts about individual performance metrics for the `Job`.
+```python
+batch.jobs[0].results[0].plot_learning_curve()
+batch.jobs[0].results[0].plot_roc_curve()
+batch.jobs[0].results[0].plot_precision_recall()
+batch.jobs[0].results[0].plot_confusion_matrix()
+```
 ---
 
 # PyPI Package
