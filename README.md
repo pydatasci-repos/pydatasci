@@ -384,11 +384,16 @@ def function_model_train(model, samples_train, samples_evaluate, **hyperparamete
 
 #### Create a function to predict.
 
-For most libraries, classification algorithms output probabilities as opposed to actual predictions when running `model.predict()`. Notice in the `return` line that we return both the `predictions` as well as the `probabilities`. We will use both behind the scenes when generating performance metrics.
+For most libraries, classification algorithms output probabilities as opposed to actual predictions when running `model.predict()`. Notice in the `return` line that we return both the `predictions` as well as the `probabilities` and the order matters. We will use both objects behind the scenes when generating performance metrics.
+
+Additionally, all classification `predictions`, both mutliclass and binary, must be returned in ordinal format. 
 
 ```python
 def function_model_predict(model, samples_predict):
+    # Returns a nested array [[prob,prob,prob],] of probabilities for multiclass/ OHE samples.
     probabilities = model.predict(samples_predict['features'])
+    # This is the official Keras replacement for multiclass `.predict_classes()`
+    # Returns a flat, ordinal array: `[0, 1, 2, 3]`
     predictions = np.argmax(probabilities, axis=-1)
     
     return predictions, probabilities

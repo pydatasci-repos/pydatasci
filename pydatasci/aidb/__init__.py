@@ -1295,11 +1295,20 @@ class Batch(BaseModel):
 		return df
 
 
-	def plot_performance(id:int, max_loss:float=5.0, min_accuracy:float=0.0):
-		df = Batch.metrics_to_pandas(id)
-
+	def plot_performance(id:int, max_loss:float=3.0, min_metric_2:float=0.0):
+		batch = Batch.get_by_id(id)
+		analysis_type = batch.algorithm.analysis_type
+		
+		df = batch.metrics_to_pandas()
 		# Now we need to filter the df based on the specified criteria.
-		qry_str = "(loss >= {}) & (accuracy <= {})".format(max_loss, min_accuracy)
+		if (analysis_type == 'classification_multi') or (analysis_type == 'classification_binary'):
+			metric_2 = "accuracy"
+			metric_2_display = "Accuracy"
+		elif analysis_type == 'regression':
+			metric_2 = "r2"
+			metric_2_display = "R²"
+		qry_str = "(loss >= {}) | ({} <= {})".format(max_loss, metric_2, min_metric_2)
+
 		failed = df.query(qry_str)
 		failed_jobs = failed['job_id'].to_list()
 		failed_jobs_unique = list(set(failed_jobs))
@@ -1314,10 +1323,10 @@ class Batch(BaseModel):
 				df_passed
 				, title = '<i>Models Metrics by Split</i>'
 				, x = 'loss'
-				, y = 'accuracy'
+				, y = metric_2
 				, color = 'job_id'
 				, height = 600
-				, hover_data = ['job_id', 'split', 'accuracy', 'loss']
+				, hover_data = ['job_id', 'split', 'loss', metric_2]
 				, line_shape='spline'
 			)
 			fig.update_traces(
@@ -1332,7 +1341,9 @@ class Batch(BaseModel):
 				)
 			)
 			fig.update_layout(
-				font_family = "Avenir"
+				xaxis_title = "Loss"
+				, yaxis_title = metric_2_display
+				, font_family = "Avenir"
 				, font_color = "#FAFAFA"
 				, plot_bgcolor = "#181B1E"
 				, paper_bgcolor = "#181B1E"
@@ -1386,7 +1397,7 @@ class Job(BaseModel):
 		return split_metrics
 
 
-	def split_regression_metrics(labels, predictions, split_name):
+	def split_regression_metrics(labels, predictions):
 		split_metrics = {}
 		split_metrics['r2'] = r2_score(labels, predictions)
 		split_metrics['mse'] = mean_squared_error(labels, predictions)
@@ -1422,9 +1433,6 @@ class Job(BaseModel):
 		split_plot_data['precision_recall_curve']['precision'] = precision
 		split_plot_data['precision_recall_curve']['recall'] = recall
 		return split_plot_data
-
-
-	#def split_regression_plots():
 
 
 	def run(id:int, verbose:bool=False):
@@ -1477,7 +1485,6 @@ class Job(BaseModel):
 
 			# 2. Preprocess the features and labels.
 			# Preprocessing happens prior to training the model.
-
 			if preprocess is not None:
 				# Remember, you only `.fit()` on training data and then apply transforms to other splits/ folds.
 				if preprocess.encoder_features is not None:
@@ -1493,7 +1500,6 @@ class Job(BaseModel):
 
 					for split, data in samples.items():
 						samples[split]['labels'] = label_encoder.transform(data['labels'])
-			
 
 			# 3. Build and Train model.
 			if hyperparamcombo is not None:
@@ -1521,7 +1527,6 @@ class Job(BaseModel):
 				)
 				model_bytes = h5_buffer.getvalue()
 
-
 			# 4. Fetch samples for evaluation.
 			predictions = {}
 			probabilities = {}
@@ -1538,17 +1543,21 @@ class Job(BaseModel):
 						data['labels'], 
 						preds, probs, analysis_type
 					)
+					metrics[split]['loss'] = algorithm.function_model_loss(model, data)
 					plot_data[split] = Job.split_classification_plots(
 						data['labels'], 
 						preds, probs, analysis_type
 					)
+			elif analysis_type == "regression":
+				probabilities = None
+				for split, data in samples.items():
+					preds = algorithm.function_model_predict(model, data)
+					predictions[split] = preds
+					metrics[split] = Job.split_regression_metrics(
+						data['labels'], preds
+					)
 					metrics[split]['loss'] = algorithm.function_model_loss(model, data)
-
-			#elif analysis_type == "regression":
-				#probabilities = None
-				#for split, data in samples.items():
-					# preds = algorithm.function_model_predict(model, data)
-					# predictions[split] = preds
+					plot_data = None
 
 			r = Result.create(
 				model_file = model_bytes
@@ -1574,9 +1583,9 @@ class Result(BaseModel):
 	model_file = BlobField()
 	history = JSONField()
 	predictions = PickleField()
-	probabilities = PickleField()
 	metrics = PickleField()
-	plot_data = PickleField()
+	plot_data = PickleField(null=True)
+	probabilities = PickleField(null=True)
 
 	job = ForeignKeyField(Job, backref='results')
 
@@ -1594,16 +1603,15 @@ class Result(BaseModel):
 
 	def plot_learning_curve(id:int):
 		r = Result.get_by_id(id)
+		a = r.job.batch.algorithm
+		analysis_type = a.analysis_type
+
 		history = r.history
-		# need to check how this is structured
-		
 		df = pd.DataFrame.from_dict(history, orient='index').transpose()
+
 		df_loss = df[['loss','val_loss']]
 		df_loss = df_loss.rename(columns={"loss": "train_loss", "val_loss": "validation_loss"})
 		df_loss = df_loss.round(3)
-		df_acc = df[['accuracy', 'val_accuracy']]
-		df_acc = df_acc.rename(columns={"accuracy": "train_accuracy", "val_accuracy": "validation_accuracy"})
-		df_acc = df_acc.round(3)
 
 		fig_loss = px.line(
 			df_loss
@@ -1611,8 +1619,8 @@ class Result(BaseModel):
 			, line_shape = 'spline'
 		)
 		fig_loss.update_layout(
-			xaxis_title = "epochs"
-			, yaxis_title = "loss"
+			xaxis_title = "Epochs"
+			, yaxis_title = "Loss"
 			, legend_title = None
 			, font_family = "Avenir"
 			, font_color = "#FAFAFA"
@@ -1645,49 +1653,55 @@ class Result(BaseModel):
 		fig_loss.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
 		fig_loss.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
 
-		fig_acc = px.line(
-		df_acc
-			, title = '<i>Training History: Accuracy</i>'
-			, line_shape = 'spline'
-		)
-		fig_acc.update_layout(
-			xaxis_title = "epochs"
-			, yaxis_title = "accuracy"
-			, legend_title = None
-			, font_family = "Avenir"
-			, font_color = "#FAFAFA"
-			, plot_bgcolor = "#181B1E"
-			, paper_bgcolor = "#181B1E"
-			, height = 400
-			, hoverlabel = dict(
-				bgcolor = "#0F0F0F"
-				, font_size = 15
-				, font_family = "Avenir"
-			)
-			, yaxis = dict(
-			side = "right"
-			, tickmode = 'linear'
-			, tick0 = 0.0
-			, dtick = 0.05
-			)
-			, legend = dict(
-				orientation="h"
-				, yanchor="bottom"
-				, y=1.02
-				, xanchor="right"
-				, x=1
-			)
-			, margin = dict(
-				t = 5
-			),
-		)
-		fig_acc.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
-		fig_acc.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+		if (analysis_type == "classification_multi") or (analysis_type == "classification_binary"):
+			df_acc = df[['accuracy', 'val_accuracy']]
+			df_acc = df_acc.rename(columns={"accuracy": "train_accuracy", "val_accuracy": "validation_accuracy"})
+			df_acc = df_acc.round(3)
 
+			fig_acc = px.line(
+			df_acc
+				, title = '<i>Training History: Accuracy</i>'
+				, line_shape = 'spline'
+			)
+			fig_acc.update_layout(
+				xaxis_title = "epochs"
+				, yaxis_title = "accuracy"
+				, legend_title = None
+				, font_family = "Avenir"
+				, font_color = "#FAFAFA"
+				, plot_bgcolor = "#181B1E"
+				, paper_bgcolor = "#181B1E"
+				, height = 400
+				, hoverlabel = dict(
+					bgcolor = "#0F0F0F"
+					, font_size = 15
+					, font_family = "Avenir"
+				)
+				, yaxis = dict(
+				side = "right"
+				, tickmode = 'linear'
+				, tick0 = 0.0
+				, dtick = 0.05
+				)
+				, legend = dict(
+					orientation="h"
+					, yanchor="bottom"
+					, y=1.02
+					, xanchor="right"
+					, x=1
+				)
+				, margin = dict(
+					t = 5
+				),
+			)
+			fig_acc.update_xaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			fig_acc.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
+			fig_acc.show()
 		fig_loss.show()
-		fig_acc.show()
+		
 
 	
+
 	def plot_confusion_matrix(id:int):
 		r = Result.get_by_id(id)
 		result_plot_data = r.plot_data
@@ -1728,6 +1742,7 @@ class Result(BaseModel):
 				)
 			)
 			fig.show()
+
 
 	def plot_precision_recall(id:int):
 		r = Result.get_by_id(id)
