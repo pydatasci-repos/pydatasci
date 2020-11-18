@@ -1705,6 +1705,11 @@ class Result(BaseModel):
 	def plot_confusion_matrix(id:int):
 		r = Result.get_by_id(id)
 		result_plot_data = r.plot_data
+		a = r.job.batch.algorithm
+		analysis_type = a.analysis_type
+		if analysis_type == "regression":
+			raise ValueError("\n`Algorith.analysis_type` of 'regression' does not support this chart.\n")
+		
 
 		cm_by_split = {}
 		for split, data in result_plot_data.items():
@@ -1747,6 +1752,10 @@ class Result(BaseModel):
 	def plot_precision_recall(id:int):
 		r = Result.get_by_id(id)
 		result_plot_data = r.plot_data
+		a = r.job.batch.algorithm
+		analysis_type = a.analysis_type
+		if analysis_type == "regression":
+			raise ValueError("\n`Algorith.analysis_type` of 'regression' does not support this chart.\n")
 
 		pr_by_split = {}
 		for split, data in result_plot_data.items():
@@ -1803,6 +1812,10 @@ class Result(BaseModel):
 	def plot_roc_curve(id:int):
 		r = Result.get_by_id(id)
 		result_plot_data = r.plot_data
+		a = r.job.batch.algorithm
+		analysis_type = a.analysis_type
+		if analysis_type == "regression":
+			raise ValueError("\n`Algorith.analysis_type` of 'regression' does not support this chart.\n")
 
 		roc_by_split = {}
 		for split, data in result_plot_data.items():

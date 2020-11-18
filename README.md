@@ -45,11 +45,14 @@ $ pip install pydatasci
 - [Done] Generate hyperparameter combinations for model building, training, and evaluation.
 - [Done] Preprocess samples to encode them for specific algorithms.
 - [Done] Queue hypertuning jobs and batches based on hyperparameter combinations.
-- [In progress] Evaluate and save the performance metrics of each model. 
-- [Next] Visually compare model metrics in Jupyter Notebooks with Plotly Dash to find the best one.
-- [Next] Derive informative featuresets from that dataset using supervised and unsupervised methods.
-- [Next] Behind the scenes, stream rows from your datasets and use generators to keep a low memory footprint.
-- [Next] Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
+- [Done] Evaluate and save the performance metrics of each model. 
+- [Done] Visually compare model metrics to find the best one.
+
+- [ToDo] Talk to users to find out if they want: time series and image data, pytorch support, or unsupervised learning more.
+
+- [Future] Derive informative featuresets from that dataset using supervised and unsupervised methods.
+- [Future] Behind the scenes, stream rows from your datasets w generators to keep a low memory footprint.
+- [Future] Scale out to run cloud jobs in parallel by toggling `cloud_queue = True`.
 
 
 ## Community
@@ -113,6 +116,12 @@ When deleting the database, you need to either reload the `aidb` module or resta
 # Usage
 
 If you've already completed the *Installation* section above, let's get started.
+
+Within the `/notebooks` folder of this repository, there are notebooks that you can follow along with for:
+
+- Multi-class Classification.
+- Binary Classification.
+- Regression.
 
 ### 1. Import the Library
 ```python
@@ -519,17 +528,16 @@ These vary based upon the `analysis_type` of the `Algorithm`.
 #### Classification metrics:
 
 Charts about aggregate performance metrics for the whole `Batch`.
-```python
-batch.plot_performance(max_loss=0.3, min_accuracy=0.85)
-```
+- `batch.plot_performance(max_loss=0.3, min_metric_2=0.85)`
 
-Charts about individual performance metrics for the `Job`.
-```python
-batch.jobs[0].results[0].plot_learning_curve()
-batch.jobs[0].results[0].plot_roc_curve()
-batch.jobs[0].results[0].plot_precision_recall()
-batch.jobs[0].results[0].plot_confusion_matrix()
-```
+Charts about individual performance metrics for a `Job`.
+- `batch.jobs[0].results[0].plot_learning_curve()`
+
+Charts specific to classification `Algorithms`.
+- `batch.jobs[0].results[0].plot_roc_curve()`
+- `batch.jobs[0].results[0].plot_precision_recall()`
+- `batch.jobs[0].results[0].plot_confusion_matrix()`
+
 ---
 
 # PyPI Package
