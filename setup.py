@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pydatasci",
-    version="0.0.55",
+    version="0.0.56",
     author="Layne Sadler",
     author_email="layne@pydatasci.org",
     description="End-to-end machine learning on your desktop or server.",
@@ -21,7 +21,9 @@ setuptools.setup(
         'peewee',
         'plotly',
         'pyarrow',
-        'scikit-learn'
+        'scikit-learn',
+        'tensorflow',
+        'tqdm'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",

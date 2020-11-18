@@ -213,7 +213,8 @@ class Dataset(BaseModel):
 			raise ValueError("\nYikes - The dataframe you provided is empty according to `df.empty`")
 
 		Dataset.check_file_format(file_format)
-		Dataset.check_column_count(user_columns=rename_columns, structure=dataframe)
+		if rename_columns is not None:
+			Dataset.check_column_count(user_columns=rename_columns, structure=dataframe)
 
 		shape = {}
 		shape['rows'], shape['columns'] = dataframe.shape[0], dataframe.shape[1]
@@ -269,7 +270,8 @@ class Dataset(BaseModel):
 		, dtype:str = None #pd.Dataframe param
 	):
 		Dataset.check_file_format(file_format)
-		Dataset.check_column_count(user_columns=column_names, structure=ndarray)
+		if rename_columns is not None:
+			Dataset.check_column_count(user_columns=column_names, structure=ndarray)
 
 		if ndarray.size == 0:
 			raise ValueError("\nYikes - The ndarray you provided is empty: `ndarray.size == 0`.\n")
@@ -1708,7 +1710,7 @@ class Result(BaseModel):
 		a = r.job.batch.algorithm
 		analysis_type = a.analysis_type
 		if analysis_type == "regression":
-			raise ValueError("\n`Algorith.analysis_type` of 'regression' does not support this chart.\n")
+			raise ValueError("\nYikes - `Algorith.analysis_type` of 'regression' does not support this chart.\n")
 		
 
 		cm_by_split = {}
@@ -1755,7 +1757,7 @@ class Result(BaseModel):
 		a = r.job.batch.algorithm
 		analysis_type = a.analysis_type
 		if analysis_type == "regression":
-			raise ValueError("\n`Algorith.analysis_type` of 'regression' does not support this chart.\n")
+			raise ValueError("\nYikes - `Algorith.analysis_type` of 'regression' does not support this chart.\n")
 
 		pr_by_split = {}
 		for split, data in result_plot_data.items():
@@ -1815,7 +1817,7 @@ class Result(BaseModel):
 		a = r.job.batch.algorithm
 		analysis_type = a.analysis_type
 		if analysis_type == "regression":
-			raise ValueError("\n`Algorith.analysis_type` of 'regression' does not support this chart.\n")
+			raise ValueError("\nYikes - `Algorith.analysis_type` of 'regression' does not support this chart.\n")
 
 		roc_by_split = {}
 		for split, data in result_plot_data.items():
