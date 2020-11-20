@@ -931,7 +931,7 @@ class Foldset(BaseModel):
 
 		if fold_index is not None:
 			if (0 > fold_index) or (fold_index > fold_count):
-				raise ValueError("\nYikes - This Foldset <id:" + str(id) +  "> has fold indices between 0 and " + str(fold_count - 1) + "\n")
+				raise ValueError(f"\nYikes - This Foldset <id:{id}> has fold indices between 0 and {fold_count-1}\n")
 
 		s = foldset.splitset
 		supervision = s.supervision
@@ -948,7 +948,7 @@ class Foldset(BaseModel):
 		for i in fold_frames.keys():
 			
 			fold = folds[i]
-			# here, `.keys()` are 'folds_train_combined' and 'fold_validation'
+			# At the next level down, `.keys()` are 'folds_train_combined' and 'fold_validation'
 			for fold_name in fold.samples.keys():
 
 				# placeholder for the frames/arrays
@@ -987,8 +987,9 @@ class Fold(BaseModel):
 	- The `samples` attribute contains the indices of `folds_train_combined` and `fold_validation`, 
 	  where `fold_validation` is the rotating fold that gets left out.
 	"""
-	fold_index = IntegerField()
+	fold_index = IntegerField() # order within the Foldset.
 	samples = JSONField()
+	# contains_all_classes = BooleanField()
 	
 	foldset = ForeignKeyField(Foldset, backref='folds')
 
@@ -1160,27 +1161,29 @@ class Batch(BaseModel):
 		, splitset_id:int
 		, hyperparamset_id:int = None
 		, foldset_id:int = None
-		, only_folded_training = False # inclusion of splitset.samples["train"]
 	):
 		algorithm = Algorithm.get_by_id(algorithm_id)
 		splitset = Splitset.get_by_id(splitset_id)
 
-		folds = [None]
+		
 		if foldset_id is not None:
 			foldset =  Foldset.get_by_id(foldset_id)
 			foldset_splitset = foldset.splitset
 			if foldset_splitset != splitset:
-				raise ValueError("\nYikes - The Foldset <id:" + str(foldset_id) + "> and Splitset <id:" + str(splitset_id) + "> you provided are not related.\n")
-			folds = folds + list(foldset.folds)
-			if only_folded_training is True:
-				folds.remove(None)
+				raise ValueError(f"\nYikes - The Foldset <id:{foldset_id}> and Splitset <id:{splitset_id}> you provided are not related.\n")
+			folds = list(foldset.folds)
+		else:
+			# Just so we have an item to loop over as a null condition when creating Jobs.
+			folds = [None]
 
 		if hyperparamset_id is not None:
 			hyperparamset = Hyperparamset.get_by_id(hyperparamset_id)
 			combos = list(hyperparamset.hyperparamcombos)
 		else:
+			# Just so we have an item to loop over as a null condition when creating Jobs.
 			combos = [None]
 
+		# Here `[None]` just multiplies by 1.
 		job_count = len(combos) * len(folds)
 
 		b = Batch.create(
@@ -1188,10 +1191,10 @@ class Batch(BaseModel):
 			, job_count = job_count
 			, algorithm = algorithm
 			, splitset = splitset
+			, foldset = foldset
 			, hyperparamset = hyperparamset
 		)
 
-		# Both of these lists (folds, combos) already handle null scenarios.
 		for f in folds:
 			for c in combos:
 				Job.create(
@@ -1228,7 +1231,7 @@ class Batch(BaseModel):
 		proc_name = "aidb_batch_" + str(batch.id)
 		proc_names = [p.name for p in multiprocessing.active_children()]
 		if proc_name in proc_names:
-			raise ValueError("\nYikes - Cannot start this Batch because multiprocessing.Process.name '" + proc_name + "' is already running.\n")
+			raise ValueError(f"\nYikes - Cannot start this Batch because multiprocessing.Process.name '{proc_name}' is already running.\n")
 
 		statuses = Batch.get_statuses(id)
 		all_not_started = (set(statuses.values()) == {'Not yet started'})
@@ -1261,7 +1264,7 @@ class Batch(BaseModel):
 		proc_name = "aidb_batch_" + str(batch.id)
 		proc_names = [p.name for p in multiprocessing.active_children()]
 		if proc_name not in proc_names:
-			raise ValueError("\nYikes - Cannot terminate `multiprocessing.Process.name` '" + proc_name + "' because it is not running.\n")
+			raise ValueError(f"\nYikes - Cannot terminate `multiprocessing.Process.name` '{proc_name}' because it is not running.\n")
 
 		processes = multiprocessing.active_children()
 		for p in processes:
@@ -1269,7 +1272,7 @@ class Batch(BaseModel):
 				try:
 					p.terminate()
 				except:
-					raise Exception("\nYikes - Failed to terminate `multiprocessing.Process` '" + proc_name + ".'\n")
+					raise Exception(f"\nYikes - Failed to terminate `multiprocessing.Process` '{proc_name}.'\n")
 				else:
 					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
 
@@ -1393,7 +1396,7 @@ class Job(BaseModel):
 			labels_processed = np.argmax(labels_processed, axis=1)
 
 		split_metrics['accuracy'] = accuracy_score(labels_processed, predictions)
-		split_metrics['precision'] = precision_score(labels_processed, predictions, average=average)
+		split_metrics['precision'] = precision_score(labels_processed, predictions, average=average, zero_division=1)
 		split_metrics['recall'] = recall_score(labels_processed, predictions, average=average)
 		split_metrics['f1'] = f1_score(labels_processed, predictions, average=average)
 		return split_metrics
@@ -1457,9 +1460,12 @@ class Job(BaseModel):
 			hyperparamcombo = j.hyperparamcombo
 			fold = j.fold
 
+			"""
 			# 1. Figure out which splits the model needs to be trained and predicted against. 
-			# The `key_*` variables dynamically determine which splits to use during model_training.
-			# ^ It is being intentionally overwritten as more complex validations/ training splits are introduced.
+			- Unlike a batch, each job can have a different fold.
+			- The `key_*` variables dynamically determine which splits to use during model_training.
+			  It is being intentionally overwritten as more complex validations/ training splits are introduced.
+			"""
 			samples = {}
 			if splitset.supervision == "unsupervised":
 				samples['train'] = splitset.to_numpy(splits=['train'])['train']
@@ -1475,7 +1481,8 @@ class Job(BaseModel):
 					
 				if fold is not None:
 					foldset = fold.foldset
-					fold_samples_np = foldset.to_numpy(fold_index=fold.fold_index)[0]
+					fold_index = fold.fold_index
+					fold_samples_np = foldset.to_numpy(fold_index=fold_index)[fold_index]
 					samples['folds_train_combined'] = fold_samples_np['folds_train_combined']
 					samples['fold_validation'] = fold_samples_np['fold_validation']
 					
@@ -1484,6 +1491,7 @@ class Job(BaseModel):
 				elif fold is None:
 					samples['train'] = splitset.to_numpy(splits=['train'])['train']
 					key_train = "train"
+
 
 			# 2. Preprocess the features and labels.
 			# Preprocessing happens prior to training the model.
