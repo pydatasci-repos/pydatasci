@@ -16,10 +16,10 @@ def check_exists_folder():
 	# If Windows does not have permission to read the folder, it will fail when trailing backslashes \\ provided.
 	app_dir_exists = os.path.exists(app_dir_no_trailing_slash)
 	if app_dir_exists:
-		print("\n=> Success - the following file path already exists on your system:\n" + app_dir + "\n")
+		print(f"\n=> Success - the following file path already exists on your system:\n{app_dir}\n")
 		return True
 	else:
-		print("\n=> Info - it appears the following folder does not exist on your system:\n" + app_dir + "\n")
+		print(f"\n=> Info - it appears the following folder does not exist on your system:\n{app_dir}\n")
 		print("\n=> Fix - you can attempt to fix this by running `pds.create_folder()`.\n")
 		return False
 
@@ -27,7 +27,7 @@ def check_exists_folder():
 def create_folder():
 	app_dir_exists = check_exists_folder()
 	if app_dir_exists:
-		print("\n=> Info - skipping folder creation as folder already exists at file path:\n" + app_dir + "\n")
+		print(f"\n=> Info - skipping folder creation as folder already exists at file path:\n{app_dir}\n")
 	else:
 		# ToDo - windows support.
 		try:
@@ -40,10 +40,10 @@ def create_folder():
 				command = 'mkdir -p "' + app_dir + '"'
 				os.system(command)
 		except:
-			print("\n=> Error - error failed to execute this system command:\n" + command)
+			print(f"\n=> Error - error failed to execute this system command:\n{command}\n")
 			print("===================================\n")
 			raise
-		print("\n=> Success - created folder at file path:\n" + app_dir + "\n")
+		print(f"\n=> Success - created folder at file path:\n{app_dir}\n")
 		print("\n=> Fix - now try running `pds.create_config()` again.\n")
 
 
@@ -59,12 +59,12 @@ def check_permissions_folder():
 				cmd_file_create = 'echo "test" >> ' + app_dir + file_name
 				write_response = os.system(cmd_file_create)
 			except:
-				print("\n=> Error - your operating system user does not have permission to write to file path:\n" + app_dir + "\n")
+				print(f"\n=> Error - your operating system user does not have permission to write to file path:\n{app_dir}\n")
 				print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
 				return False
 
 			if write_response != 0:
-				print("\n=> Error - your operating system user does not have permission to write to file path:\n" + app_dir + "\n")
+				print(f"\n=> Error - your operating system user does not have permission to write to file path:\n{app_dir}\n")
 				print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
 				return False
 			else:
@@ -72,18 +72,18 @@ def check_permissions_folder():
 				try:
 					read_response = os.system("type " + app_dir + file_name)
 				except:
-					print("\n=> Error - your operating system user does not have permission to read from file path:\n" + app_dir + "\n")
+					print(f"\n=> Error - your operating system user does not have permission to read from file path:\n{app_dir}\n")
 					print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
 					return False
 
 				if read_response != 0:
-					print("\n=> Error - your operating system user does not have permission to read from file path:\n" + app_dir + "\n")
+					print(f"\n=> Error - your operating system user does not have permission to read from file path:\n{app_dir}\n")
 					print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
 					return False
 				else:
 					cmd_file_delete = "erase " + app_dir + file_name
 					os.system(cmd_file_delete)
-					print("\n=> Success - your operating system user can read from and write to file path:\n" + app_dir + "\n")
+					print(f"\n=> Success - your operating system user can read from and write to file path:\n{app_dir}\n")
 					return True
 
 		else:
@@ -93,13 +93,13 @@ def check_permissions_folder():
 			writeable = os.access(app_dir, os.W_OK)
 
 			if readable and writeable:
-				print("\n=> Success - your operating system user can read from and write to file path:\n" + app_dir + "\n")
+				print(f"\n=> Success - your operating system user can read from and write to file path:\n{app_dir}\n")
 				return True
 			else:
 				if not readable:
-					print("\n=> Error - your operating system user does not have permission to read from file path:\n" + app_dir + "\n")
+					print(f"\n=> Error - your operating system user does not have permission to read from file path:\n{app_dir}\n")
 				if not writeable:
-					print("\n=> Error - your operating system user does not have permission to write to file path:\n" + app_dir + "\n")
+					print(f"\n=> Error - your operating system user does not have permission to write to file path:\n{app_dir}\n")
 				if not readable or not writeable:
 					print("\n=> Fix - you can attempt to fix this by running `pds.grant_permissions_folder()`.\n")
 					return False
@@ -110,7 +110,7 @@ def check_permissions_folder():
 def grant_permissions_folder():
 	permissions = check_permissions_folder()
 	if permissions:
-		print("\n=> Info - skipping as you already have permissions to read from and write to file path:\n" + app_dir + "\n")
+		print(f"\n=> Info - skipping as you already have permissions to read from and write to file path:\n{app_dir}\n")
 	else:
 		try:
 			if os.name == 'nt':
@@ -124,15 +124,15 @@ def grant_permissions_folder():
 				command = 'chmod +wr ' + '"' + app_dir + '"'
 				os.system(command)
 		except:
-			print("\n=> Error - error failed to execute this system command:\n" + command)
+			print(f"\n=> Error - error failed to execute this system command:\n{command}\n")
 			print("===================================\n")
 			raise
 		
 		permissions = check_permissions_folder()
 		if permissions:
-			print("\n=> Success - granted system permissions to read and write from file path:\n" + app_dir + "\n")
+			print(f"\n=> Success - granted system permissions to read and write from file path:\n{app_dir}\n")
 		else:
-			print("\n=> Error - failed to grant system permissions to read and write from file path:\n" + app_dir + "\n")
+			print(f"\n=> Error - failed to grant system permissions to read and write from file path:\n{app_dir}\n")
 
 
 def get_config():
@@ -160,13 +160,13 @@ def create_config():
 				with open(default_config_path, 'w') as pds_config_file:
 					json.dump(pds_config, pds_config_file)
 			except:
-				print("\n=> Error - failed to create config file at path:\n" + default_config_path)
-				print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.\n")
+				print(f"\n=> Error - failed to create config file at path:\n{default_config_path}")
+				print("\n=> Fix - you can attempt to fix this by running `pds.check_permissions_folder()`.")
 				print("===================================\n")
 				raise
-			print("\n=> Success - created config file for settings at path:\n" + default_config_path + "\n")
+			print(f"\n=> Success - created config file for settings at path:\n{default_config_path}\n")
 		else:
-			print("\n=> Info - skipping as config file already exists at path:\n" + default_config_path + "\n")
+			print(f"\n=> Info - skipping as config file already exists at path:\n{default_config_path}\n")
 
 
 def delete_config(confirm:bool=False):
@@ -179,10 +179,10 @@ def delete_config(confirm:bool=False):
 			try:
 				os.remove(config_path)
 			except:
-				print("\n=> Error - failed to delete config file at path:\n" + config_path)
+				print(f"\n=> Error - failed to delete config file at path:\n{config_path}")
 				print("===================================\n")
 				raise
-			print("\n=> Success - deleted config file at path:\n" + config_path + "\n")		
+			print(f"\n=> Success - deleted config file at path:\n{config_path}\n")		
 		else:
 			print("\n=> Info - skipping deletion because `confirm` arg not set to boolean `True`.\n")
 
@@ -200,10 +200,10 @@ def update_config(kv:dict):
 			with open(config_path, 'w') as pds_config_file:
 				json.dump(pds_config, pds_config_file)
 		except:
-			print("\n=> Error - failed to update config file at path:\n" + config_path)
+			print(f"\n=> Error - failed to update config file at path:\n{config_path}")
 			print("===================================\n")
 			raise
-		print("\n=> Success - updated configuration settings:\n" + str(pds_config) + "\n")
+		print(f"\n=> Success - updated configuration settings:\n{pds_config}\n")
 
 # This runs at startup and triggers the welcome message instructions if configuration has not taken place yet.
 pds_config = get_config()

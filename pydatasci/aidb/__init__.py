@@ -75,23 +75,23 @@ def create_db():
 	db_path = get_path_db()
 	db_exists = os.path.exists(db_path)
 	if db_exists:
-		print("\n=> Skipping database file creation as a database file already exists at path:\n" + db_path + "\n")
+		print(f"\n=> Skipping database file creation as a database file already exists at path:\n{db_path}\n")
 	else:
 		# Create sqlite file for db.
 		try:
 			db = get_db()
 		except:
-			print("\n=> Error - failed to create database file at path:\n" + db_path)
+			print(f"\n=> Error - failed to create database file at path:\n{db_path}")
 			print("===================================\n")
 			raise
-		print("\n=> Success - created database file for machine learning metrics at path:\n" + db_path + "\n")
+		print(f"\n=> Success - created database file for machine learning metrics at path:\n{db_path}\n")
 
 	db = get_db()
 	# Create tables inside db.
 	tables = db.get_tables()
 	table_count = len(tables)
 	if table_count > 0:
-		print("\n=> Info - skipping table creation as the following tables already exist:\n" + str(tables) + "\n")
+		print(f"\n=> Info - skipping table creation as the following tables already exist:\n{tables}\n")
 	else:
 		db.create_tables([
 			Dataset, Label, Featureset, 
@@ -102,7 +102,7 @@ def create_db():
 		tables = db.get_tables()
 		table_count = len(tables)
 		if table_count > 0:
-			print("\n=> Success - created the following tables within database:\n" + str(tables) + "\n")
+			print(f"\n=> Success - created the following tables within database:\n{tables}\n")
 		else:
 			print("\n=> Error - failed to create tables. Please see README file section titled: 'Deleting & Recreating the Database'\n")
 
@@ -115,13 +115,13 @@ def delete_db(confirm:bool=False):
 			try:
 				os.remove(db_path)
 			except:
-				print("\n=> Error - failed to delete database file at path:\n" + db_path)
+				print(f"\n=> Error - failed to delete database file at path:\n{db_path}")
 				print("===================================")
 				raise
-			print("\n=> Success - deleted database file at path:\n" + db_path + "\n")
+			print(f"\n=> Success - deleted database file at path:\n{db_path}\n")
 
 		else:
-			print("\n=> Info - there is no file to delete at path:\n" + db_path + "\n")
+			print(f"\n=> Info - there is no file to delete at path:\n{db_path}\n")
 	else:
 		print("\n=> Info - skipping deletion because `confirm` arg not set to boolean `True`.\n")
 
@@ -210,7 +210,7 @@ class Dataset(BaseModel):
 		, rename_columns:list = None
 	):
 		if dataframe.empty:
-			raise ValueError("\nYikes - The dataframe you provided is empty according to `df.empty`")
+			raise ValueError("\nYikes - The dataframe you provided is empty according to `df.empty`\n")
 
 		Dataset.check_file_format(file_format)
 		if rename_columns is not None:
@@ -289,7 +289,7 @@ class Dataset(BaseModel):
 				# generate string-based column names to feed to pandas
 				col_count = ndarray.shape[1]
 				column_names = [str(i) for i in range(col_count)]
-				print("\nInfo - You didn't provide any column names for your array, so we generated them for you.\ncolumn_names: " + str(column_names) + "\n" )
+				print(f"\nInfo - You didn't provide any column names for your array, so we generated them for you.\ncolumn_names: {column_names}\n")
 			
 		shape = {}
 		shape['rows'], shape['columns'] = ndarray.shape[0], ndarray.shape[1]
@@ -429,14 +429,14 @@ class Dataset(BaseModel):
 	def check_file_format(file_format):
 		accepted_formats = ['csv', 'tsv', 'parquet', None]
 		if file_format not in accepted_formats:
-			raise ValueError("\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: " + file_format + "\n")
+			raise ValueError(f"\nYikes - Available file formats include uncompressed csv, tsv, and parquet.\nYour file format: {file_format}\n")
 
 
 	def check_column_count(user_columns, structure):
 		col_count = len(user_columns)
 		structure_col_count = structure.shape[1]
 		if col_count != structure_col_count:
-			raise ValueError("\nYikes - The dataframe you provided has " + structure_col_count + "columns, but you provided " + col_count + "columns.\n")
+			raise ValueError(f"\nYikes - The dataframe you provided has <{structure_col_count}> columns, but you provided <{col_count}> columns.\n")
 
 
 	def compress_or_not(data, perform_gzip):
@@ -480,7 +480,7 @@ class Label(BaseModel):
 				l_cols = l.columns
 				l_cols_alpha = sorted(l_cols)
 				if cols_aplha == l_cols_alpha:
-					raise ValueError("\nYikes - This Dataset already has Label <id:" + l_id + "> with the same columns.\nCannot create duplicate.\n")
+					raise ValueError(f"\nYikes - This Dataset already has Label <id:{l_id}> with the same columns.\nCannot create duplicate.\n")
 
 		column_count = len(columns)
 
@@ -587,7 +587,7 @@ class Featureset(BaseModel):
 				else:
 					f_cols_alpha = None
 				if cols_aplha == f_cols_alpha:
-					raise ValueError("\nYikes - This Dataset already has Featureset <id:" + f_id + "> with the same columns.\nCannot create duplicate.\n")
+					raise ValueError(f"\nYikes - This Dataset already has Featureset <id:{f_id}> with the same columns.\nCannot create duplicate.\n")
 
 		f = Featureset.create(
 			dataset = d
@@ -912,7 +912,7 @@ class Foldset(BaseModel):
 		train_count = len(arr_train_indices)
 		remainder = train_count % fold_count
 		if remainder != 0:
-			print("\nAdvice - The length <" + str(train_count) + "> of your training Split is not evenly divisible by the number of folds <" + str(fold_count) + "> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold, which only has <" + str(remainder) + "> samples in it.\n")
+			print(f"\nAdvice - The length <{train_count}> of your training Split is not evenly divisible by the number of folds <{fold_count}> you specified.\nThere's a chance that this could lead to misleadingly low accuracy for the last Fold, which only has <{remainder}> samples in it.\n")
 
 		foldset = Foldset.create(
 			fold_count = fold_count
@@ -1319,7 +1319,7 @@ class Batch(BaseModel):
 				except:
 					raise Exception(f"\nYikes - Failed to terminate `multiprocessing.Process` '{proc_name}.'\n")
 				else:
-					print("\nKilled `multiprocessing.Process` '" + proc_name + "' spawned from Batch <id:" + str(batch.id) + ">.\n")
+					print(f"\nKilled `multiprocessing.Process` '{proc_name}' spawned from Batch <id:{batch.id}\n")
 
 
 	def metrics_to_pandas(id:int):
@@ -1489,11 +1489,11 @@ class Job(BaseModel):
 		j = Job.get_by_id(id)
 		if (j.status == "Succeeded"):
 			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as is has already succeeded.")
+				print(f"\nSkipping <Job.id{j.id}> as is has already succeeded.\n")
 			return j
 		elif (j.status == "Running"):
 			if verbose:
-				print("\nSkipping Job #" + str(j.id) + " as it is already running.")
+				print(f"\nSkipping <Job.id{j.id}> as it is already running.\n")
 			return j
 		else:
 			if verbose:
@@ -1763,7 +1763,7 @@ class Result(BaseModel):
 		a = r.job.batch.algorithm
 		analysis_type = a.analysis_type
 		if analysis_type == "regression":
-			raise ValueError("\nYikes - `Algorith.analysis_type` of 'regression' does not support this chart.\n")
+			raise ValueError("\nYikes - <Algorith.analysis_type> of 'regression' does not support this chart.\n")
 		
 
 		cm_by_split = {}
@@ -1810,7 +1810,7 @@ class Result(BaseModel):
 		a = r.job.batch.algorithm
 		analysis_type = a.analysis_type
 		if analysis_type == "regression":
-			raise ValueError("\nYikes - `Algorith.analysis_type` of 'regression' does not support this chart.\n")
+			raise ValueError("\nYikes - <Algorith.analysis_type> of 'regression' does not support this chart.\n")
 
 		pr_by_split = {}
 		for split, data in result_plot_data.items():
@@ -1870,7 +1870,7 @@ class Result(BaseModel):
 		a = r.job.batch.algorithm
 		analysis_type = a.analysis_type
 		if analysis_type == "regression":
-			raise ValueError("\nYikes - `Algorith.analysis_type` of 'regression' does not support this chart.\n")
+			raise ValueError("\nYikes - <Algorith.analysis_type> of 'regression' does not support this chart.\n")
 
 		roc_by_split = {}
 		for split, data in result_plot_data.items():
