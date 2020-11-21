@@ -858,6 +858,21 @@ class Splitset(BaseModel):
 		return foldset
 
 
+	def make_preprocess(
+		id:int
+		, description:str = None
+		, encoder_features:object = None
+		, encoder_labels:object = None
+	):
+		preprocess = Preprocess.from_splitset(
+			splitset_id = id
+			, description = description
+			, encoder_features = encoder_features
+			, encoder_labels = encoder_labels
+		)
+		return preprocess
+
+
 
 
 class Foldset(BaseModel):
@@ -1059,6 +1074,36 @@ class Algorithm(BaseModel):
 	function_model_loss = PickleField() # do clustering algs have loss?
 	description = CharField(null=True)
 
+
+	def make_hyperparamset(
+		id:int
+		, hyperparameters:dict
+		, preprocess_id:int = None
+		, description:str = None
+	):
+		hyperparamset = Hyperparamset.from_algorithm(
+			algorithm_id = id
+			, hyperparameters = hyperparameters
+			, preprocess_id = preprocess_id
+			, description = description
+		)
+		return hyperparamset
+
+
+	def make_batch(
+		id:int
+		, splitset_id:int
+		, hyperparamset_id:int = None
+		, foldset_id:int = None
+	):
+
+		batch = Batch.from_algorithm(
+			algorithm_id = id
+			, splitset_id = splitset_id
+			, hyperparamset_id = hyperparamset_id
+			, foldset_id = foldset_id
+		)
+		return batch
 
 
 
@@ -1396,7 +1441,7 @@ class Job(BaseModel):
 			labels_processed = np.argmax(labels_processed, axis=1)
 
 		split_metrics['accuracy'] = accuracy_score(labels_processed, predictions)
-		split_metrics['precision'] = precision_score(labels_processed, predictions, average=average, zero_division=1)
+		split_metrics['precision'] = precision_score(labels_processed, predictions, average=average, zero_division=0)
 		split_metrics['recall'] = recall_score(labels_processed, predictions, average=average)
 		split_metrics['f1'] = f1_score(labels_processed, predictions, average=average)
 		return split_metrics
