@@ -1939,7 +1939,6 @@ class Result(BaseModel):
 		fig.update_yaxes(zeroline=False, gridcolor='#262B2F', tickfont=dict(color='#818487'))
 		fig.show()
 
-
 """
 class Environment(BaseModel)?
 	# Even in local envs, you can have different pyenvs.

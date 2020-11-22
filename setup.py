@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="pydatasci",
-    version="0.0.58",
+    version="0.0.61",
     author="Layne Sadler",
     author_email="layne@pydatasci.org",
     description="End-to-end machine learning on your desktop or server.",
@@ -13,6 +13,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/pydatasci-repo",
     packages=setuptools.find_packages(),
+    include_package_data=True,#triggers MANIFEST.in
     install_requires=[
         'appdirs',
         'keras',
