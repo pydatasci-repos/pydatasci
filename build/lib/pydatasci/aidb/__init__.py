@@ -24,7 +24,6 @@ from tqdm import tqdm
 
 import keras 
 from keras.models import Sequential, load_model
-from keras.layers import Dense, Dropout
 from keras.callbacks import History
 
 import plotly.express as px
@@ -1211,6 +1210,7 @@ class Batch(BaseModel):
 		algorithm = Algorithm.get_by_id(algorithm_id)
 		splitset = Splitset.get_by_id(splitset_id)
 
+		
 		if foldset_id is not None:
 			foldset =  Foldset.get_by_id(foldset_id)
 			foldset_splitset = foldset.splitset
@@ -1220,7 +1220,6 @@ class Batch(BaseModel):
 		else:
 			# Just so we have an item to loop over as a null condition when creating Jobs.
 			folds = [None]
-			foldset = None
 
 		if hyperparamset_id is not None:
 			hyperparamset = Hyperparamset.get_by_id(hyperparamset_id)

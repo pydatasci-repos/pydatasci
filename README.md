@@ -140,7 +140,7 @@ dataset = aidb.Dataset.from_file(
 	, file_format = 'tsv'
 	, name = 'tab-separated plants'
 	, perform_gzip = True
-	, dtype = 'float64' # or a dict or dtype by column name.
+	, dtype = None # or a dict or dtype by column name.
 )
 
 # From an in-memory data structure.
