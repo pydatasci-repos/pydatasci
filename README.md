@@ -140,7 +140,6 @@ dataset = aidb.Dataset.from_file(
 	, file_format = 'tsv'
 	, name = 'tab-separated plants'
 	, perform_gzip = True
-	, dtype = None # or a dict or dtype by column name.
 )
 
 # From an in-memory data structure.
@@ -149,8 +148,6 @@ dataset = aidb.Dataset.from_pandas(
 	, file_format = 'csv'
 	, name = 'comma-separated plants'
 	, perform_gzip = False
-	, dtype = None # None infers from dataframe provided
-	, rename_columns = None
 )
 
 dataset = aidb.Dataset.from_numpy(
@@ -335,7 +332,19 @@ foldset = splitset_train68_val12_test20.make_foldset(fold_count=5)
 Again, read a Foldset into memory with `to_pandas()` and `to_numpy()` methods. Note: this will return a `dict` of either data frames or arrays.
 
 
-### 7. Create an `Algorithm` aka model.
+### 7. Optionally, create a `Preprocess`.
+If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods.
+
+```python
+preprocess = aidb.Preprocess.from_splitset(
+    splitset_id = splitset_id
+    , description = "standard scaling on features"
+    , encoder_features = encoder_features
+    , encoder_labels = encoder_labels
+)
+```
+
+### 8. Create an `Algorithm` aka model.
 
 
 #### Create variations of hyperparameters.
@@ -359,9 +368,9 @@ In a moment, we will make a dictionary of these variables, and they will be fed 
 ```python
 def function_model_build(**hyperparameters):
     model = Sequential()
-    model.add(Dense(13, input_shape=(4,), activation='relu', kernel_initializer='he_uniform', name='fc1')) # first hidden layer
+    model.add(Dense(13, input_shape=(4,), activation='relu', kernel_initializer='he_uniform'))
     model.add(Dropout(0.2))
-    model.add(Dense(hyperparameters['l2_neuron_count'], activation='relu', kernel_initializer='he_uniform', name='fc2'))
+    model.add(Dense(hyperparameters['l2_neuron_count'], activation='relu', kernel_initializer='he_uniform'))
     model.add(Dense(3, activation='softmax', name='output'))
 
     model.compile(optimizer=hyperparameters['optimizer'], loss='categorical_crossentropy', metrics=['accuracy'])
@@ -436,17 +445,6 @@ algorithm = aidb.Algorithm.create(
 )
 ```
 
-### 8. Optionally, create a `Preprocess`.
-If you want to either encode, standardize, normalize, or scale you Features and/ or Labels - then you can make use of `sklearn.preprocessing` methods.
-
-```python
-preprocess = aidb.Preprocess.from_splitset(
-    splitset_id = splitset_id
-    , description = "standard scaling on features"
-    , encoder_features = encoder_features
-    , encoder_labels = encoder_labels
-)
-```
 
 ### 9. Optionally, create combinations of `Hyperparamsets` for our model.
 

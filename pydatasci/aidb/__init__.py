@@ -98,7 +98,8 @@ def create_db():
 			Dataset, Label, Featureset, 
 			Splitset, Foldset, Fold, 
 			Algorithm, Hyperparamset, Hyperparamcombo, Preprocess, 
-			Batch, Job, Result
+			Batch, Job, Result,
+			Experiment, Data
 		])
 		tables = db.get_tables()
 		table_count = len(tables)
@@ -203,7 +204,7 @@ class Dataset(BaseModel):
 
 
 	def from_pandas(
-		dataframe
+		dataframe:object
 		, name:str = None
 		, file_format:str = None
 		, perform_gzip:bool = True
@@ -1068,7 +1069,7 @@ class Algorithm(BaseModel):
 	# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	"""
 	library = CharField()
-	analysis_type = CharField()#classification_multi, classification_binary, clustering.
+	analysis_type = CharField()#classification_multi, classification_binary, regression, clustering.
 	function_model_build = PickleField()
 	function_model_train = PickleField()
 	function_model_predict = PickleField()
@@ -1076,16 +1077,50 @@ class Algorithm(BaseModel):
 	description = CharField(null=True)
 
 
+	def make(
+		library:str
+		, analysis_type:str
+		, function_model_build:object
+		, function_model_train:object
+		, function_model_predict:object
+		, function_model_loss:object
+		, description:str = None
+	):
+		library = library.lower()
+		if (library != 'keras'):
+			raise ValueError("\nYikes - Right now, the only library we support is 'keras.' More to come soon!\n")
+
+		analysis_type = analysis_type.lower()
+		supported_analyses = ['classification_multi', 'classification_binary', 'regression']
+		if (analysis_type not in supported_analyses):
+			raise ValueError(f"\nYikes - Right now, the only analytics we support are:\n{supported_analyses}\n")
+
+		funcs = [function_model_build, function_model_train, function_model_predict, function_model_loss]
+		for f in funcs:
+			is_func = callable(f)
+			if not is_func:
+				raise ValueError(f"\nYikes - The following variable must be made a function, it failed `callable(variable)==True`:\n{f}\n")
+
+		algorithm = Algorithm.create(
+			library = library
+			, analysis_type = analysis_type
+			, function_model_build = function_model_build
+			, function_model_train = function_model_train
+			, function_model_predict = function_model_predict
+			, function_model_loss = function_model_loss
+			, description = description
+		)
+		return algorithm
+
+
 	def make_hyperparamset(
 		id:int
 		, hyperparameters:dict
-		, preprocess_id:int = None
 		, description:str = None
 	):
 		hyperparamset = Hyperparamset.from_algorithm(
 			algorithm_id = id
 			, hyperparameters = hyperparameters
-			, preprocess_id = preprocess_id
 			, description = description
 		)
 		return hyperparamset
@@ -1096,15 +1131,30 @@ class Algorithm(BaseModel):
 		, splitset_id:int
 		, hyperparamset_id:int = None
 		, foldset_id:int = None
+		, preprocess_id:int = None
 	):
-
 		batch = Batch.from_algorithm(
 			algorithm_id = id
 			, splitset_id = splitset_id
 			, hyperparamset_id = hyperparamset_id
 			, foldset_id = foldset_id
+			, preprocess_id = preprocess_id
 		)
 		return batch
+
+	def make_experiment(
+		id:int
+		, data_id:int
+		, hyperparameters:dict = None
+		, description:str = None
+	):
+		experiment = Experiment.from_algorithm(
+			algorithm_id = id
+			, data_id = data_id
+			, hyperparameters = hyperparameters
+			, description = description
+		)
+		return experiment
 
 
 
@@ -1127,19 +1177,13 @@ class Hyperparamset(BaseModel):
 	hyperparameters = JSONField()
 
 	algorithm = ForeignKeyField(Algorithm, backref='hyperparamsets')
-	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='hyperparamsets')
 
 	def from_algorithm(
 		algorithm_id:int
 		, hyperparameters:dict
-		, preprocess_id:int = None
 		, description:str = None
 	):
-		a = Algorithm.get_by_id(algorithm_id)
-		if preprocess_id is not None:
-			p = Preprocess.get_by_id(preprocess_id)
-		else:
-			p = None
+		algorithm = Algorithm.get_by_id(algorithm_id)
 
 		# construct the hyperparameter combinations
 		params_names = list(hyperparameters.keys())
@@ -1156,8 +1200,7 @@ class Hyperparamset(BaseModel):
 		
 		# now that we have the metadata about combinations
 		hyperparamset = Hyperparamset.create(
-			algorithm = a
-			, preprocess = p
+			algorithm = algorithm
 			, description = description
 			, hyperparameters = hyperparameters
 			, hyperparamcombo_count = hyperparamcombo_count
@@ -1194,9 +1237,10 @@ class Batch(BaseModel):
 	splitset = ForeignKeyField(Splitset, backref='batches')
 	# repeat_count means you could make a whole batch from one alg w no params.
 
-	# preprocess is obtained through hyperparamset.
+	# preprocess is obtained through hyperparamset. EDIT: but i can get it through the splitset.
 	hyperparamset = ForeignKeyField(Hyperparamset, deferrable='INITIALLY DEFERRED', null=True, backref='batches')
 	foldset = ForeignKeyField(Foldset, deferrable='INITIALLY DEFERRED', null=True, backref='batches')
+	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='batches')
 
 	def __init__(self, *args, **kwargs):
 		super(Batch, self).__init__(*args, **kwargs)
@@ -1207,6 +1251,7 @@ class Batch(BaseModel):
 		, splitset_id:int
 		, hyperparamset_id:int = None
 		, foldset_id:int = None
+		, preprocess_id:int = None
 	):
 		algorithm = Algorithm.get_by_id(algorithm_id)
 		splitset = Splitset.get_by_id(splitset_id)
@@ -1228,6 +1273,13 @@ class Batch(BaseModel):
 		else:
 			# Just so we have an item to loop over as a null condition when creating Jobs.
 			combos = [None]
+			hyperparamset = None
+			
+
+		if preprocess_id is not None:
+			preprocess = Preprocess.get_by_id(preprocess_id)
+		else:
+			preprocess = None
 
 		# Here `[None]` just multiplies by 1.
 		job_count = len(combos) * len(folds)
@@ -1239,6 +1291,7 @@ class Batch(BaseModel):
 			, splitset = splitset
 			, foldset = foldset
 			, hyperparamset = hyperparamset
+			, preprocess = preprocess
 		)
 
 		for f in folds:
@@ -1502,7 +1555,7 @@ class Job(BaseModel):
 			algorithm = j.batch.algorithm
 			analysis_type = algorithm.analysis_type
 			splitset = j.batch.splitset
-			preprocess = j.batch.hyperparamset.preprocess
+			preprocess = j.batch.preprocess
 			hyperparamcombo = j.hyperparamcombo
 			fold = j.fold
 
@@ -1571,7 +1624,7 @@ class Job(BaseModel):
 				**hyperparameters
 			)
 
-			if (algorithm.library == "Keras"):
+			if (algorithm.library.lower() == "keras"):
 				# If blank this value is `{}` not None.
 				history = model.history.history
 
@@ -1582,6 +1635,9 @@ class Job(BaseModel):
 					, save_format = 'h5'
 				)
 				model_bytes = h5_buffer.getvalue()
+			else:
+				model_bytes = None
+				history = None
 
 			# 4. Fetch samples for evaluation.
 			predictions = {}
@@ -1651,7 +1707,7 @@ class Result(BaseModel):
 		algorithm = r.job.batch.algorithm
 		model_bytes = r.model_file
 		model_bytesio = io.BytesIO(model_bytes)
-		if (algorithm.library == "Keras"):
+		if (algorithm.library.lower() == "keras"):
 			h5_file = h5py.File(model_bytesio,'r')
 			model = load_model(h5_file, compile=True)
 		return model
@@ -1950,3 +2006,134 @@ class Environment(BaseModel)?
 	dependencies_import = JSONField() # list of strings to import
 	dependencies_py_vers = CharField() # e.g. '3.7.6' for tensorflow.
 """
+
+
+#==================================================
+# HIGH LEVEL API 
+#==================================================
+
+class Data(BaseModel):
+	dataset = ForeignKeyField(Dataset, backref='datas')
+	featureset = ForeignKeyField(Featureset, backref='datas')
+	splitset = ForeignKeyField(Splitset, backref='datas')
+
+	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='datas')
+	foldset = ForeignKeyField(Foldset, deferrable='INITIALLY DEFERRED', null=True, backref='datas')
+	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='datas')
+	
+	def make(
+		dataframe_or_filePath:object
+		, label_column_name:str = None
+		, size_test:float = None
+		, size_validation:float = None
+		, fold_count:int = None
+		, encoder_features:object = None
+		, encoder_labels:object = None
+	):
+		# Create the dataset from either df or file.
+		d = dataframe_or_filePath
+		data_type = str(type(d))
+		if (data_type == "<class 'pandas.core.frame.DataFrame'>"):
+			dataset = Dataset.from_pandas(dataframe=d)
+		elif (data_type == "<class 'str'>"):
+			if '.csv' in d:
+				file_format='csv'
+			elif '.tsv' in d:
+				file_format='tsv'
+			elif '.parquet' in d:
+				file_format='parquet'
+			else:
+				raise ValueError("\nYikes - None of the following file extensions were found in the path you provided:\n'.csv', '.tsv', '.parquet'\n")
+			dataset = Dataset.from_file(path=d, file_format=file_format)
+		else:
+			raise ValueError("\nYikes - The `dataframe_or_filePath` is neither a string nor a Pandas dataframe.\n")
+
+		# Not allowing user specify columns to keep/ include.
+		if label_column_name is not None:
+			label = dataset.make_label(columns=[label_column_name])
+			featureset = dataset.make_featureset(exclude_columns=[label_column_name])
+			label_id = label.id
+		elif label_column_name is None:
+			featureset = dataset.make_featureset()
+			label_id = None
+			label = None
+
+		splitset = featureset.make_splitset(
+			label_id = label_id
+			, size_test = size_test
+			, size_validation = size_validation
+		)
+
+		if fold_count is not None:
+			foldset = splitset.make_foldset(fold_count=fold_count)
+		elif fold_count is None:
+			# Low level api sets fold_count=3 when fold_count=None. Skipping foldset creation here.
+			foldset = None
+
+		if (encoder_features is not None) or (encoder_labels is not None):
+			preprocess = splitset.make_preprocess(
+				encoder_features = encoder_features
+				, encoder_labels = encoder_labels
+			)
+		elif (encoder_features is None) and (encoder_labels is None):
+			preprocess = None
+
+		data = Data.create(
+			dataset = dataset
+			, featureset = featureset
+			, splitset = splitset
+			, label = label
+			, foldset = foldset
+			, preprocess = preprocess
+		)
+		return data
+
+
+class Experiment(BaseModel):
+	data = ForeignKeyField(Data, backref='experiments')
+	algorithm = ForeignKeyField(Algorithm, backref='experiments')
+	# The batch is created during the .make() function based on user inputs.
+	batch = ForeignKeyField(Batch, backref='experiments')
+
+	hyperparamset = ForeignKeyField(Hyperparamset, deferrable='INITIALLY DEFERRED', null=True, backref='experiments')
+	description = CharField(null=True)
+	
+	def from_algorithm(
+		algorithm_id:int
+		, data_id:int
+		, hyperparameters:dict = None
+		, description:str = None
+	):
+		data = Data.get_by_id(dataset_id)
+		splitset_id = data.dataset.splitset.id
+
+		try: foldset_id = data.splitset.foldsets[0].id
+		except: foldset_id = None
+		else: pass
+
+		try: preprocess_id = data.preprocess.id
+		except: preprocess_id = None
+		else: pass
+
+		if hyperparameters is not None:
+			algorithm = Algorithm.get_by_id(algorithm_id)
+			hyperparamset = algorithm.make_hyperparamset(hyperparameters=hyperparameters)
+			hyperparamset_id = hyperparamset.id
+		elif hyperparameters is None:
+			hyperparamset_id = None
+
+		batch = algorithm.make_batch(
+			splitset_id = splitset_id
+			, hyperparamset_id = hyperparamset_id
+			, foldset_id = foldset_id
+			, preprocess_id = preprocess_id
+		)
+
+		experiment = Experiment.create(
+			data = data
+			, algorithm = algorithm
+			, batch = batch
+			, hyperparamset = hyperparamset
+			, description = description
+		)
+		return experiment
