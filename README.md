@@ -115,7 +115,64 @@ When deleting the database, you need to either reload the `aidb` module or resta
 
 # Usage
 
-If you've already completed the *Installation* section above, let's get started.
+If you've already completed the *Installation* section above, then let's get started.
+
+
+## I. Built-In Examples
+```python
+import pydatasci as pds
+from pydatasci import aidb
+from pydatasci.aidb import examples
+```
+
+There are a few KB of tabular `demo_files` included with the package that are well suited for classification (multi & binary) as well as regression.
+```
+examples.list_demo_files()
+
+df = examples.demo_file_to_pandas('iris.tsv')
+```
+
+If you want to skip the process of preparing sample data and jump right into the hyperparameter tuning, then take a look at the `demo_batches`. All examples include a validation split and 
+
+```python
+examples.list_demo_batches()
+
+batch = examples.make_demo_batch(batch_name:str)
+
+batch.run_jobs()
+
+batch.metrics_to_pandas()
+
+# `metric_2` is 'accuracy' for classification models or 'r^2' for regression models.
+batch.plot_performance(max_loss=3.0, min_metric_2=0.0)
+```
+Reference the section titled '12. Visually compare the performance of your hypertuned Algorithms.' for more plots.
+
+
+## II. Beginner (high-level API)
+
+```python
+import pydatasci as pds
+from pydatasci import aidb
+from pydatasci.aidb import examples
+from sklearn.preprocessing import *
+```
+A `DataPipeline` boils down all of the procedures involved in preparing samples to be fed into a machine learning model into a single step. Its `.make()` method allows for customization such as validation splits, cross-validation folds, and encoding samples.
+
+```python
+datapipeline = aidb.DataPipeline.make(
+    dataFrame_or_filePath = examples.demo_file_to_pandas('iris_10x.tsv')
+    , label_column = 'species'
+    , size_test = 0.30
+    #, size_validation:float #skipping due to use of folds.
+    , fold_count = 5
+    , encoder_features = StandardScaler()
+    , encoder_labels = OneHotEncoder(sparse=False)
+)
+```
+Now you are ready to build your model.
+
+## III. Advanced (low-level API)
 
 Within the `/notebooks` folder of this repository, there are notebooks that you can follow along with for:
 
@@ -462,7 +519,6 @@ hyperparameter_lists = {
 
 hyperparamset = aidb.Hyperparamset.from_algorithm(
 	algorithm_id = algorithm.id
-	, preprocess_id = preprocess.id
 	, description = "experimenting with neuron count, layers, and epoch count"
 	, hyperparameter_lists = hyperparameter_lists
 )
@@ -475,6 +531,7 @@ batch = aidb.Batch.from_algorithm(
 	, splitset_id = splitset.id
 	, hyperparamset_id = hyperparamset.id
 	, foldset_id = foldset.id
+	, preprocess_id = preprocess.id
 )
 ```
 

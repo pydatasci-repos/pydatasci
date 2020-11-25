@@ -99,7 +99,7 @@ def create_db():
 			Splitset, Foldset, Fold, 
 			Algorithm, Hyperparamset, Hyperparamcombo, Preprocess, 
 			Batch, Job, Result,
-			Experiment, Data
+			Experiment, DataPipeline
 		])
 		tables = db.get_tables()
 		table_count = len(tables)
@@ -1063,10 +1063,7 @@ class Preprocess(BaseModel):
 
 class Algorithm(BaseModel):
 	"""		
-	# It would be cool to dynamically change the number of layers as a hyperparam. 
-	  would require params to be a pickle field with something like `extra layers` and kwargs. super messy.
-	# I guess it would be easier to throw 2 models into the mix though.
-	# pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
+	# Remember, pytorch and mxnet handle optimizer/loss outside the model definition as part of the train.
 	"""
 	library = CharField()
 	analysis_type = CharField()#classification_multi, classification_binary, regression, clustering.
@@ -1076,14 +1073,72 @@ class Algorithm(BaseModel):
 	function_model_loss = PickleField() # do clustering algs have loss?
 	description = CharField(null=True)
 
+	# predefined functions because pickle does not allow nested functions.
+	def multiclass_model_predict(model, samples_predict):
+		probabilities = model.predict(samples_predict['features'])
+		# This is the official keras replacement for multiclass `.predict_classes()`
+		# Returns one ordinal array per sample: `[[0][1][2][3]]` 
+		predictions = np.argmax(probabilities, axis=-1)
+		return predictions, probabilities
+
+	def binary_model_predict(model, samples_predict):
+		probabilities = model.predict(samples_predict['features'])
+		# this is the official keras replacement for binary classes `.predict_classes()`
+		# Returns one array per sample: `[[0][1][0][1]]` 
+		predictions = (probabilities > 0.5).astype("int32")
+		return predictions, probabilities
+
+	def regression_model_predict(model, samples_predict):
+		predictions = model.predict(samples_predict['features'])
+		return predictions
+
+	def keras_model_loss(model, samples_evaluate):
+		metrics = model.evaluate(samples_evaluate['features'], samples_evaluate['labels'], verbose=0)
+		if (isinstance(metrics, list)):
+			loss = metrics[0]
+		elif (isinstance(metrics, str)):
+			loss = metrics
+		else:
+			raise ValueError(f"\nYikes - The 'metrics' returned are neither a list nor a str:\n{metrics}\n")
+		return loss
+
+
+	def select_function_model_predict(
+		function_model_predict:object,
+		library:str,
+		analysis_type:str
+	):
+		if (library == 'keras'):
+			if (analysis_type == 'classification_multi'):
+				function_model_predict = Algorithm.multiclass_model_predict
+			elif (analysis_type == 'classification_binary'):
+				function_model_predict = Algorithm.binary_model_predict
+			elif (analysis_type == 'regression'):
+				function_model_predict = Algorithm.regression_model_predict
+		if function_model_predict is None:
+			raise ValueError("\nYikes - You did not provide a `function_model_predict`,\nand we don't have an automated function for your combination of 'library' and 'analysis_type'\n")
+		return function_model_predict
+
+
+	def select_function_model_loss(
+		function_model_loss:object,
+		library:str,
+		analysis_type:str
+	):		
+		if (library == 'keras'):
+			function_model_loss = Algorithm.keras_model_loss
+		if function_model_loss is None:
+			raise ValueError("\nYikes - You did not provide a `function_model_loss`,\nand we don't have an automated function for your combination of 'library' and 'analysis_type'\n")
+		return function_model_loss
+
 
 	def make(
 		library:str
 		, analysis_type:str
 		, function_model_build:object
 		, function_model_train:object
-		, function_model_predict:object
-		, function_model_loss:object
+		, function_model_predict:object = None
+		, function_model_loss:object = None
 		, description:str = None
 	):
 		library = library.lower()
@@ -1095,11 +1150,20 @@ class Algorithm(BaseModel):
 		if (analysis_type not in supported_analyses):
 			raise ValueError(f"\nYikes - Right now, the only analytics we support are:\n{supported_analyses}\n")
 
+		if (function_model_predict is None):
+			function_model_predict = Algorithm.select_function_model_predict(
+				function_model_predict, library, analysis_type
+			)
+		if (function_model_loss is None):
+			function_model_loss = Algorithm.select_function_model_loss(
+				function_model_loss, library, analysis_type
+			)
+
 		funcs = [function_model_build, function_model_train, function_model_predict, function_model_loss]
 		for f in funcs:
 			is_func = callable(f)
-			if not is_func:
-				raise ValueError(f"\nYikes - The following variable must be made a function, it failed `callable(variable)==True`:\n{f}\n")
+			if (not is_func):
+				raise ValueError(f"\nYikes - The following variable is not a function, it failed `callable(variable)==True`:\n{f}\n")
 
 		algorithm = Algorithm.create(
 			library = library
@@ -2012,18 +2076,18 @@ class Environment(BaseModel)?
 # HIGH LEVEL API 
 #==================================================
 
-class Data(BaseModel):
-	dataset = ForeignKeyField(Dataset, backref='datas')
-	featureset = ForeignKeyField(Featureset, backref='datas')
-	splitset = ForeignKeyField(Splitset, backref='datas')
+class DataPipeline(BaseModel):
+	dataset = ForeignKeyField(Dataset, backref='datapipelines')
+	featureset = ForeignKeyField(Featureset, backref='datapipelines')
+	splitset = ForeignKeyField(Splitset, backref='datapipelines')
 
-	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='datas')
-	foldset = ForeignKeyField(Foldset, deferrable='INITIALLY DEFERRED', null=True, backref='datas')
-	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='datas')
+	label = ForeignKeyField(Label, deferrable='INITIALLY DEFERRED', null=True, backref='datapipelines')
+	foldset = ForeignKeyField(Foldset, deferrable='INITIALLY DEFERRED', null=True, backref='datapipelines')
+	preprocess = ForeignKeyField(Preprocess, deferrable='INITIALLY DEFERRED', null=True, backref='datapipelines')
 	
 	def make(
-		dataframe_or_filePath:object
-		, label_column_name:str = None
+		dataFrame_or_filePath:object
+		, label_column:str = None
 		, size_test:float = None
 		, size_validation:float = None
 		, fold_count:int = None
@@ -2031,7 +2095,7 @@ class Data(BaseModel):
 		, encoder_labels:object = None
 	):
 		# Create the dataset from either df or file.
-		d = dataframe_or_filePath
+		d = dataFrame_or_filePath
 		data_type = str(type(d))
 		if (data_type == "<class 'pandas.core.frame.DataFrame'>"):
 			dataset = Dataset.from_pandas(dataframe=d)
@@ -2046,14 +2110,14 @@ class Data(BaseModel):
 				raise ValueError("\nYikes - None of the following file extensions were found in the path you provided:\n'.csv', '.tsv', '.parquet'\n")
 			dataset = Dataset.from_file(path=d, file_format=file_format)
 		else:
-			raise ValueError("\nYikes - The `dataframe_or_filePath` is neither a string nor a Pandas dataframe.\n")
+			raise ValueError("\nYikes - The `dataFrame_or_filePath` is neither a string nor a Pandas dataframe.\n")
 
 		# Not allowing user specify columns to keep/ include.
-		if label_column_name is not None:
-			label = dataset.make_label(columns=[label_column_name])
-			featureset = dataset.make_featureset(exclude_columns=[label_column_name])
+		if label_column is not None:
+			label = dataset.make_label(columns=[label_column])
+			featureset = dataset.make_featureset(exclude_columns=[label_column])
 			label_id = label.id
-		elif label_column_name is None:
+		elif label_column is None:
 			featureset = dataset.make_featureset()
 			label_id = None
 			label = None
@@ -2078,7 +2142,7 @@ class Data(BaseModel):
 		elif (encoder_features is None) and (encoder_labels is None):
 			preprocess = None
 
-		data = Data.create(
+		datapipeline = DataPipeline.create(
 			dataset = dataset
 			, featureset = featureset
 			, splitset = splitset
@@ -2086,11 +2150,11 @@ class Data(BaseModel):
 			, foldset = foldset
 			, preprocess = preprocess
 		)
-		return data
+		return datapipeline
 
 
 class Experiment(BaseModel):
-	data = ForeignKeyField(Data, backref='experiments')
+	datapipeline = ForeignKeyField(DataPipeline, backref='experiments')
 	algorithm = ForeignKeyField(Algorithm, backref='experiments')
 	# The batch is created during the .make() function based on user inputs.
 	batch = ForeignKeyField(Batch, backref='experiments')
@@ -2100,18 +2164,18 @@ class Experiment(BaseModel):
 	
 	def from_algorithm(
 		algorithm_id:int
-		, data_id:int
+		, datapipeline_id:int
 		, hyperparameters:dict = None
 		, description:str = None
 	):
-		data = Data.get_by_id(dataset_id)
-		splitset_id = data.dataset.splitset.id
+		datapipeline = DataPipeline.get_by_id(dataset_id)
+		splitset_id = datapipeline.dataset.splitset.id
 
-		try: foldset_id = data.splitset.foldsets[0].id
+		try: foldset_id = datapipeline.splitset.foldsets[0].id
 		except: foldset_id = None
 		else: pass
 
-		try: preprocess_id = data.preprocess.id
+		try: preprocess_id = datapipeline.preprocess.id
 		except: preprocess_id = None
 		else: pass
 
@@ -2130,7 +2194,7 @@ class Experiment(BaseModel):
 		)
 
 		experiment = Experiment.create(
-			data = data
+			datapipeline = datapipeline
 			, algorithm = algorithm
 			, batch = batch
 			, hyperparamset = hyperparamset

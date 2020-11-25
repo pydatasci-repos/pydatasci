@@ -72,7 +72,6 @@ def list_demo_files(format:str=None):
 		raise ValueError(f"\nYikes - The format you provided <{format}> is not one of the following:{formats_df} or {formats_lst}\n")
 
 
-
 def get_demo_file_path(file_name:str):
 	short_path = f"data/{file_name}"
 	full_path = pkg_resources.resource_filename('pydatasci', short_path)
@@ -96,7 +95,7 @@ def demo_file_to_pandas(file_name:str):
 def get_demo_batches():
 	batches = [
 		{
-			'name': 'multiclass'
+			'batch_name': 'multiclass'
 			, 'supervision': 'supervised'
 			, 'analysis': 'classification'
 			, 'sub_analysis': 'multi label'
@@ -104,7 +103,7 @@ def get_demo_batches():
 			, 'dataset': 'iris.tsv'
 		},
 		{
-			'name': 'binary'
+			'batch_name': 'binary'
 			, 'supervision': 'supervised'
 			, 'analysis': 'classification'
 			, 'sub_analysis': 'binary'
@@ -112,7 +111,7 @@ def get_demo_batches():
 			, 'dataset': 'sonar.csv'
 		},
 		{
-			'name': 'regression'
+			'batch_name': 'regression'
 			, 'supervision': 'supervised'
 			, 'analysis': 'regression'
 			, 'sub_analysis': None
@@ -120,7 +119,7 @@ def get_demo_batches():
 			, 'dataset': 'houses.csv'	
 		},
 		{
-			'name': 'multiclass_folded'
+			'batch_name': 'multiclass_folded'
 			, 'supervision': 'supervised'
 			, 'analysis': 'classification'
 			, 'sub_analysis': 'multi label'
