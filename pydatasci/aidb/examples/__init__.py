@@ -182,16 +182,6 @@ def multiclass_function_model_train(model, samples_train, samples_evaluate, **hy
 	)
 	return model
 
-def multiclass_function_model_predict(model, samples_predict):
-	probabilities = model.predict(samples_predict['features'])
-	predictions = np.argmax(probabilities, axis=-1)
-	return predictions, probabilities
-
-def multiclass_function_model_loss(model, samples_evaluate):
-	loss, _ = model.evaluate(samples_evaluate['features'], samples_evaluate['labels'], verbose=0)
-	return loss
-
-
 def make_demo_batch_multiclass():
 	hyperparameters = {
 		"neuron_count": [9, 12]
@@ -235,8 +225,6 @@ def make_demo_batch_multiclass():
 		, analysis_type = "classification_multi"
 		, function_model_build = multiclass_function_model_build
 		, function_model_train = multiclass_function_model_train
-		, function_model_predict = multiclass_function_model_predict
-		, function_model_loss = multiclass_function_model_loss
 	)
 
 	hyperparamset = algorithm.make_hyperparamset(
@@ -297,8 +285,6 @@ def make_demo_batch_multiclass_folded():
 		, analysis_type = "classification_multi"
 		, function_model_build = multiclass_function_model_build
 		, function_model_train = multiclass_function_model_train
-		, function_model_predict = multiclass_function_model_predict
-		, function_model_loss = multiclass_function_model_loss
 	)
 
 	hyperparamset = algorithm.make_hyperparamset(
@@ -336,15 +322,6 @@ def binary_model_train(model, samples_train, samples_evaluate, **hyperparameters
 		, callbacks = [History()]
 	)
 	return model
-
-def binary_model_predict(model, samples_predict):
-	probabilities = model.predict(samples_predict['features'])
-	predictions = (probabilities > 0.5).astype("int32")
-	return predictions, probabilities
-
-def binary_model_loss(model, samples_evaluate):
-    loss, _ = model.evaluate(samples_evaluate['features'], samples_evaluate['labels'], verbose=0)
-    return loss
 
 
 def make_demo_batch_binary():
@@ -388,8 +365,6 @@ def make_demo_batch_binary():
 		, analysis_type = "classification_binary"
 		, function_model_build = binary_model_build
 		, function_model_train = binary_model_train
-		, function_model_predict = binary_model_predict
-		, function_model_loss = binary_model_loss
 	)
 
 	hyperparamset = algorithm.make_hyperparamset(
@@ -408,32 +383,24 @@ def make_demo_batch_binary():
 # ------------------------ REGRESSION ------------------------
 
 def regression_model_build(**hyperparameters):
-    model = Sequential()
-    model.add(Dense(hyperparameters['neuron_count'], input_dim=12, kernel_initializer='normal', activation='relu'))
-    model.add(Dropout(0.15))
-    model.add(Dense(hyperparameters['neuron_count'], kernel_initializer='normal', activation='relu'))
-    model.add(Dense(1, kernel_initializer='normal'))
-    model.compile(loss='mean_squared_error', optimizer='rmsprop')
-    return model
+	model = Sequential()
+	model.add(Dense(hyperparameters['neuron_count'], input_dim=12, kernel_initializer='normal', activation='relu'))
+	model.add(Dropout(0.15))
+	model.add(Dense(hyperparameters['neuron_count'], kernel_initializer='normal', activation='relu'))
+	model.add(Dense(1, kernel_initializer='normal'))
+	model.compile(loss='mean_squared_error', optimizer='rmsprop')
+	return model
 
 def regression_model_train(model, samples_train, samples_evaluate, **hyperparameters):
-    model.fit(
-        samples_train['features'], samples_train['labels']
-        , validation_data = (samples_evaluate['features'], samples_evaluate['labels'])
-        , verbose = 0
-        , batch_size = 3
-        , epochs = hyperparameters['epochs']
-        , callbacks = [History()]
-    )
-    return model
-
-def regression_model_predict(model, samples_predict):
-    predictions = model.predict(samples_predict['features'])
-    return predictions
-
-def regression_model_loss(model, samples_evaluate):
-    loss = model.evaluate(samples_evaluate['features'], samples_evaluate['labels'], verbose=0)
-    return loss
+	model.fit(
+		samples_train['features'], samples_train['labels']
+		, validation_data = (samples_evaluate['features'], samples_evaluate['labels'])
+		, verbose = 0
+		, batch_size = 3
+		, epochs = hyperparameters['epochs']
+		, callbacks = [History()]
+	)
+	return model
 
 def make_demo_batch_regression():
 	hyperparameters = {
@@ -476,8 +443,6 @@ def make_demo_batch_regression():
 		, analysis_type = "regression"
 		, function_model_build = regression_model_build
 		, function_model_train = regression_model_train
-		, function_model_predict = regression_model_predict
-		, function_model_loss = regression_model_loss
 	)
 
 	hyperparamset = algorithm.make_hyperparamset(
